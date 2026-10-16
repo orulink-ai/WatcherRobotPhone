@@ -1,0 +1,117 @@
+{
+  "repository": "https://github.com/boboabw/phone-agent",
+  "commit": "a90045074afcd4de69f885fba25b0b171d690f45",
+  "method": "gh api contents at fixed commit; selected app source and complete firmware source",
+  "files": [
+    {
+      "path": "PhoneAgent/Services/AgentEngine.swift",
+      "sha256": "275c2acd54aad695639c60c20b21c3829649b48e863ec3ee78c69b7c0b395109",
+      "bytes": 28797
+    },
+    {
+      "path": "PhoneAgent/Services/AgentPiPController.swift",
+      "sha256": "cfbd4d6b990b5c6e679d734a46b4a771a8f736f18d9f07ca76c8f54c3cd8845a",
+      "bytes": 21031
+    },
+    {
+      "path": "PhoneAgent/Services/BLETransport.swift",
+      "sha256": "bf4d60c8cdd84ae905f214b9614b36a23470a3c333423cd43719e4fe8fa0b781",
+      "bytes": 23621
+    },
+    {
+      "path": "PhoneAgent/Services/CaptureService.swift",
+      "sha256": "dfe385c4286154a65acf7525954a40c59f788192849877b5bc5b2e3a921d50ca",
+      "bytes": 14502
+    },
+    {
+      "path": "PhoneAgent/Services/HIDKeyboard.swift",
+      "sha256": "7d4020ae10e3954798ea6054174ed3342a08b3582b492514aa2e5f62698d9b9e",
+      "bytes": 2247
+    },
+    {
+      "path": "PhoneAgent/Services/MouseExecutor.swift",
+      "sha256": "42d4e9b9aec3f5c1c13b2952ce50aaefa49e63d1c0eea3ec020486d606814cfc",
+      "bytes": 9770
+    },
+    {
+      "path": "PhoneAgent/Services/PhoneControlSkill.swift",
+      "sha256": "9e82b13a2c4ffc2e3aa8f1f162a21ee02180d46cd25a53e303f33b912441a2d4",
+      "bytes": 5533
+    },
+    {
+      "path": "PhoneAgent/Services/VisionClient.swift",
+      "sha256": "0ca3e3476dff7c5df65babb9912db9aab420604a56e2a2506de6625bf5585d9d",
+      "bytes": 28380
+    },
+    {
+      "path": "README.md",
+      "sha256": "510a037c75e54902ac60011172969db29df5c265fcb0b1f7dc54713814f3c9eb",
+      "bytes": 10802
+    },
+    {
+      "path": "Shared/AgentModels.swift",
+      "sha256": "6da96021443c15689f7071f83ad156f72092fa0c814f8d227e6b3635b535ef12",
+      "bytes": 23085
+    },
+    {
+      "path": "Shared/MouseProtocol.swift",
+      "sha256": "ad63c8af34f05e7d76f3ae63fec09d15977c23048118fd00924e9879ca4bafe8",
+      "bytes": 2810
+    },
+    {
+      "path": "Skills/phone-control/SKILL.md",
+      "sha256": "b72138b7a806e4360ea658571d6b50bc7bfeb93c94ec912d76e31c680a76a61d",
+      "bytes": 18387
+    },
+    {
+      "path": "docs/architecture.md",
+      "sha256": "d5c0775083e03a149ca63bc49d33dfda2d59f0295bc502e01cd962b73d5cd3d7",
+      "bytes": 5955
+    },
+    {
+      "path": "docs/firmware.md",
+      "sha256": "77c41b125a84345ea3d541a58006882303dbcf4c0e407fcf27f9dcf3d070ee3c",
+      "bytes": 2112
+    },
+    {
+      "path": "docs/setup.md",
+      "sha256": "569551f478864dc5be6fb8d163a014e2d1d58fca2a965a348345f2ae4c449980",
+      "bytes": 2815
+    },
+    {
+      "path": "firmware/CMakeLists.txt",
+      "sha256": "680e6c57eabaabbdd3d2f83f1ac16eac79069c41900bd5bc08eaa9a5c9c8b377",
+      "bytes": 428
+    },
+    {
+      "path": "firmware/main/CMakeLists.txt",
+      "sha256": "5c332337a72be2024e1649461c881eb2e87d8cb68b4df57e7b01ab4414ee546f",
+      "bytes": 117
+    },
+    {
+      "path": "firmware/main/Kconfig.projbuild",
+      "sha256": "695424c974b5f2988e4432d58cb527263f6c038c7b20ded6d384aa7c17de57c2",
+      "bytes": 784
+    },
+    {
+      "path": "firmware/main/main.c",
+      "sha256": "dfa18ca4c4d380086782ec99e739c24f2cf4c8c133786af5b2aee21d39851456",
+      "bytes": 34925
+    },
+    {
+      "path": "firmware/main/status_led.c",
+      "sha256": "272abab39c75ec1edbfbddc1447ca146080ac9900ee69957efd55455c9fee2a5",
+      "bytes": 5914
+    },
+    {
+      "path": "firmware/main/status_led.h",
+      "sha256": "817b901236db7a9de3d720432551da2a1ae1299f8c3fad4828c772a4130e7956",
+      "bytes": 360
+    },
+    {
+      "path": "firmware/sdkconfig.defaults",
+      "sha256": "8c345970df51e4fbcdfda81c80a61a8ef9fd18ad08d2da49f65c37619b05360a",
+      "bytes": 521
+    }
+  ]
+}
