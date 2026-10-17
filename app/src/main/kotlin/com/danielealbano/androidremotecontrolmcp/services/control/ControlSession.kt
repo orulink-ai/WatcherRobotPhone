@@ -1,0 +1,115 @@
+package com.danielealbano.androidremotecontrolmcp.services.control
+
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.supervisorScope
+import javax.inject.Inject
+import javax.inject.Singleton
+
+data class ControlSessionState(
+    val activeTool: String? = null,
+    val lastTool: String? = null,
+    val isPaused: Boolean = false,
+    val revision: Long = 0,
+) {
+    val isActive: Boolean get() = activeTool != null
+}
+
+class ControlPausedException(
+    message: String = "Remote control is paused. Resume control on the device before trying again.",
+    cause: Throwable? = null,
+) : IllegalStateException(message, cause)
+
+/** Tracks tool activity and lets local takeover cancel tools without cancelling the server. */
+@Singleton
+class ControlSession
+    @Inject
+    constructor() {
+        private val lock = Any()
+        private val activeTools = linkedMapOf<Job, String>()
+        private val _state = MutableStateFlow(ControlSessionState())
+        val state: StateFlow<ControlSessionState> = _state.asStateFlow()
+
+        suspend fun <T> runTool(
+            toolName: String,
+            block: suspend () -> T,
+        ): T =
+            supervisorScope {
+                val operation = async(start = CoroutineStart.LAZY) { block() }
+                register(operation, toolName)
+                try {
+                    operation.await()
+                } catch (error: ControlInterruptionException) {
+                    currentCoroutineContext().ensureActive()
+                    throw ControlPausedException(error.message.orEmpty(), error)
+                } finally {
+                    finish(operation)
+                }
+            }
+
+        fun pause() {
+            val interrupted =
+                synchronized(lock) {
+                    if (_state.value.isPaused) return
+                    drainActiveTools().also {
+                        _state.value =
+                            _state.value.copy(activeTool = null, isPaused = true, revision = _state.value.revision + 1)
+                    }
+                }
+            interrupted.forEach { it.cancel(ControlInterruptionException("Control paused by the device user.")) }
+        }
+
+        fun resume() {
+            synchronized(lock) {
+                if (!_state.value.isPaused) return
+                _state.value = _state.value.copy(isPaused = false, revision = _state.value.revision + 1)
+            }
+        }
+
+        fun reset() {
+            val interrupted =
+                synchronized(lock) {
+                    drainActiveTools().also {
+                        _state.value = ControlSessionState(revision = _state.value.revision + 1)
+                    }
+                }
+            interrupted.forEach { it.cancel(ControlInterruptionException("Control session was stopped.")) }
+        }
+
+        private fun register(
+            operation: Job,
+            toolName: String,
+        ) {
+            synchronized(lock) {
+                if (_state.value.isPaused) throw ControlPausedException()
+                activeTools[operation] = toolName
+                _state.value =
+                    _state.value.copy(activeTool = toolName, lastTool = toolName, revision = _state.value.revision + 1)
+            }
+        }
+
+        private fun finish(operation: Job) {
+            synchronized(lock) {
+                if (activeTools.remove(operation) == null) return
+                _state.value =
+                    _state.value.copy(
+                        activeTool = activeTools.values.lastOrNull(),
+                        revision = _state.value.revision + 1,
+                    )
+            }
+        }
+
+        // Called only under lock; removing jobs prevents their cleanup from changing a new session.
+        private fun drainActiveTools(): List<Job> = activeTools.keys.toList().also { activeTools.clear() }
+
+        private class ControlInterruptionException(
+            message: String,
+        ) : CancellationException(message)
+    }

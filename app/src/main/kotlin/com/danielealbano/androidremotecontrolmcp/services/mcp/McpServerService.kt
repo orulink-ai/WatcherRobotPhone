@@ -28,8 +28,6 @@ import com.danielealbano.androidremotecontrolmcp.mcp.oauth.OAuthApprovalCoordina
 import com.danielealbano.androidremotecontrolmcp.mcp.oauth.OAuthServerDeps
 import com.danielealbano.androidremotecontrolmcp.mcp.tools.LoggedToolRegistrar
 import com.danielealbano.androidremotecontrolmcp.mcp.tools.McpToolUtils
-import com.danielealbano.androidremotecontrolmcp.mcp.tools.ReferenceCountedToolCallIndicator
-import com.danielealbano.androidremotecontrolmcp.mcp.tools.ToolCallIndicator
 import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerAppManagementTools
 import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerCameraTools
 import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerFileTools
@@ -52,16 +50,17 @@ import com.danielealbano.androidremotecontrolmcp.privacy.PseudonymStore
 import com.danielealbano.androidremotecontrolmcp.privacy.ner.NerCache
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.AccessibilityNodeCache
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.AccessibilityServiceProvider
-import com.danielealbano.androidremotecontrolmcp.services.accessibility.AccessibilityToolCallIndicator
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.AccessibilityTreeParser
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.ActionExecutor
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.CompactTreeFormatter
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.ElementFinder
+import com.danielealbano.androidremotecontrolmcp.services.accessibility.McpAccessibilityService
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.ScreenStateSnapshotCache
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.TypeInputController
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.WebViewNodeMerger
 import com.danielealbano.androidremotecontrolmcp.services.apps.AppManager
 import com.danielealbano.androidremotecontrolmcp.services.camera.CameraProvider
+import com.danielealbano.androidremotecontrolmcp.services.control.ControlSession
 import com.danielealbano.androidremotecontrolmcp.services.intents.IntentDispatcher
 import com.danielealbano.androidremotecontrolmcp.services.location.LocationProvider
 import com.danielealbano.androidremotecontrolmcp.services.notifications.McpNotificationListenerService
@@ -116,6 +115,8 @@ class McpServerService : Service() {
     @Inject lateinit var certificateManager: CertificateManager
 
     @Inject lateinit var actionExecutor: ActionExecutor
+
+    @Inject lateinit var controlSession: ControlSession
 
     @Inject lateinit var accessibilityServiceProvider: AccessibilityServiceProvider
 
@@ -217,6 +218,7 @@ class McpServerService : Service() {
 
         when (intent?.action) {
             ACTION_STOP -> {
+                controlSession.pause()
                 lastIntentWasStop = true
                 persistServerRunning(settingsRepository, false)
                 stopSelf()
@@ -247,6 +249,7 @@ class McpServerService : Service() {
     @Suppress("TooGenericExceptionCaught", "LongMethod")
     private suspend fun startServer() {
         try {
+            controlSession.reset()
             updateStatus(ServerStatus.Starting)
 
             // getServerConfig() guarantees ensureAuthModelMigrated() has run before the server reads
@@ -446,13 +449,12 @@ class McpServerService : Service() {
         fileSizeLimitMb: Int,
         toolCallIndicatorEnabled: Boolean,
     ) {
-        val toolCallIndicator = ReferenceCountedToolCallIndicator(AccessibilityToolCallIndicator())
-        toolCallIndicator.setEnabled(toolCallIndicatorEnabled)
+        McpAccessibilityService.setControlOverlayEnabled(toolCallIndicatorEnabled)
         val registrar =
             LoggedToolRegistrar(
                 server,
                 serverLogRepository,
-                toolCallIndicator,
+                controlSession = controlSession,
             )
         registerAccessibilityToolBundle(registrar, toolNamePrefix, perms)
         registerFileTools(registrar, storageLocationProvider, fileOperationProvider, toolNamePrefix, perms)
@@ -615,6 +617,7 @@ class McpServerService : Service() {
         updateStatus(ServerStatus.Stopped)
         Log.i(TAG, "McpServerService destroyed")
 
+        controlSession.reset()
         super.onDestroy()
     }
 
