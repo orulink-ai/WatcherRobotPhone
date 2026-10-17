@@ -15,8 +15,6 @@ import com.danielealbano.androidremotecontrolmcp.R
 /** A compact, independently touchable panel; the surrounding effects remain touch-through. */
 internal class ControlPanelView(
     context: Context,
-    onTakeover: () -> Unit,
-    onStop: () -> Unit,
 ) : LinearLayout(context) {
     private val status = label(STATUS_TEXT_SP, Color.WHITE).apply { setTypeface(typeface, Typeface.BOLD) }
     private val detail = label(DETAIL_TEXT_SP, SECONDARY_TEXT)
@@ -25,8 +23,8 @@ internal class ControlPanelView(
             text = "✦"
             gravity = Gravity.CENTER
         }
-    private val takeover = action(R.string.control_overlay_takeover, ACCENT, onTakeover)
-    private val stop = action(R.string.control_overlay_stop, STOP_TEXT, onStop)
+    private val takeover = action(R.string.control_overlay_takeover, ACCENT)
+    private val stop = action(R.string.control_overlay_stop, STOP_TEXT)
 
     init {
         orientation = HORIZONTAL
@@ -54,6 +52,14 @@ internal class ControlPanelView(
             stop,
             LayoutParams(dp(BUTTON_SIZE_DP), dp(BUTTON_SIZE_DP)).apply { marginStart = dp(BUTTON_MARGIN_DP) },
         )
+    }
+
+    fun setActions(
+        onTakeover: () -> Unit,
+        onStop: () -> Unit,
+    ) {
+        takeover.setOnClickListener { onTakeover() }
+        stop.setOnClickListener { onStop() }
     }
 
     fun render(
@@ -151,7 +157,6 @@ internal class ControlPanelView(
     private fun action(
         text: Int,
         color: Int,
-        callback: () -> Unit,
     ): TextView =
         label(BUTTON_TEXT_SP, color).apply {
             setText(text)
@@ -164,7 +169,6 @@ internal class ControlPanelView(
                 )
             isClickable = true
             isFocusable = true
-            setOnClickListener { callback() }
         }
 
     private fun surface(

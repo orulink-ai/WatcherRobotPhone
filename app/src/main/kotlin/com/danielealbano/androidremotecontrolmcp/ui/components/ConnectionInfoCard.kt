@@ -151,11 +151,11 @@ fun ConnectionInfoCard(
     httpsEnabled: Boolean,
     bearerToken: String,
     onCopyAll: (String) -> Unit,
+    modifier: Modifier = Modifier,
     tunnelEnabled: Boolean = false,
     serverStatus: ServerStatus = ServerStatus.Stopped,
     tunnelStatus: TunnelStatus = TunnelStatus.Disconnected,
     onShare: (String) -> Unit = {},
-    modifier: Modifier = Modifier,
 ) {
     var showToken by remember { mutableStateOf(false) }
 

@@ -18,7 +18,7 @@ internal class ControlOverlayWindows(
 ) {
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     val effects = ControlEffectsView(context)
-    val panel = ControlPanelView(context, onTakeover, onStop)
+    val panel = ControlPanelView(context).apply { setActions(onTakeover, onStop) }
     var attached = false
         private set
 
