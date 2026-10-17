@@ -157,6 +157,8 @@ async def serve(
 
             def terminal_factory(trial):
                 if terminal_task["kind"] == "recorded":
+                    if recipe is not None and recipe.get("entryStrategy") is not None:
+                        return TerminalRecordedRuntime(trial, terminal_task, entry_strategy=recipe["entryStrategy"])
                     return TerminalRecordedRuntime(trial, terminal_task)
                 return GenericTerminalRuntime(trial, terminal_task, base=base)
 

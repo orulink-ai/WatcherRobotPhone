@@ -86,6 +86,8 @@ def _validate_recipe(recipe):
         raise ValueError("Recipe must come from a verified paired demonstration")
     if recipe.get("recipeSha256") != recipe_digest(recipe):
         raise ValueError("Recipe changed; demonstrate and verify the new version")
+    if recipe.get("entryStrategy") not in {None, "prepare-feed-v1"}:
+        raise ValueError("Unsupported recorded recipe entry strategy")
     task = recipe.get("task", {})
     if not all(
         isinstance(task.get(key), str) and task[key] for key in ("query", "expectedFirstTitle")
@@ -94,6 +96,11 @@ def _validate_recipe(recipe):
     steps = recipe.get("steps")
     if not isinstance(steps, list) or not 1 <= len(steps) <= MAX_STEPS:
         raise ValueError("Recipe step budget invalid")
+    if recipe.get("entryStrategy") is not None and (
+        steps[0].get("before", {}).get("stage") != "search"
+        or steps[0].get("before", {}).get("observation", {}).get("kind") != "feed"
+    ):
+        raise ValueError("Prepared entry requires an actual observed feed")
     previous = None
     for step in steps:
         selector = step.get("selector", {})
@@ -141,9 +148,11 @@ def _new_bundle(directory, files):
         )
 
 
-def compile_recording(recording, directory):
+def compile_recording(recording, directory, *, entry_strategy=None):
     """Compile actual selected actions and their before/after observations."""
     started = time.perf_counter()
+    if entry_strategy not in {None, "prepare-feed-v1"}:
+        raise ValueError("Unsupported recorded recipe entry strategy")
     if (
         recording.get("schemaVersion") != 1
         or recording.get("source") != "pi-agent-demonstration"
@@ -204,6 +213,10 @@ def compile_recording(recording, directory):
             step.get("delivery") == "not_dispatched" for step in recording.get("steps", [])
         ),
     }
+    if entry_strategy is not None:
+        if not recording.get("steps") or predicate(recording["steps"][0]["before"])["observation"].get("kind") != "feed":
+            raise ValueError("Prepared entry requires an actual observed feed")
+        recipe["entryStrategy"] = entry_strategy
     recipe["recipeSha256"] = recipe_digest(recipe)
     _validate_recipe(recipe)
     # Waiting teaches the observable completion condition. Keep all those

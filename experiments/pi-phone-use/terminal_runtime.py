@@ -18,7 +18,7 @@ from types import SimpleNamespace
 
 from config import output_dir
 from controller import (
-    PACKAGE, PhoneRuntime, private_write, prune_controls, screen_dimensions, search_value,
+    PACKAGE, PhoneRuntime, Progress, private_write, prune_controls, screen_dimensions, search_value,
 )
 from own_mcp import McpError, OwnMcp, content_text, own_nodes
 from window_state import focused_package
@@ -419,10 +419,14 @@ class GenericTerminalRuntime(PhoneRuntime):
 class TerminalRecordedRuntime(PhoneRuntime):
     """Prepare a reusable start using MCP HOME and expose semantic stack recovery."""
 
-    def __init__(self, trial_id, task):
+    def __init__(self, trial_id, task, *, entry_strategy=None):
         self.task = parse_terminal_task(task)
         if self.task["kind"] != "recorded":
             raise ValueError("A recorded task is required")
+        if entry_strategy not in {None, "prepare-feed-v1"}:
+            raise ValueError("Unsupported recipe entry strategy")
+        self.entry_strategy = entry_strategy
+        self._entry_prepared = entry_strategy is None
         self._prepared = False
         super().__init__(trial_id)
 
@@ -462,6 +466,23 @@ class TerminalRecordedRuntime(PhoneRuntime):
         if state["locked"] or state["focusedPackage"] is None:
             stop_on_screen(self, self.task, state["focusedPackage"], state["locked"], [],
                            "LOCKED" if state["locked"] else "UNKNOWN_FOCUS")
+        if not self._entry_prepared:
+            # A retained results/detail stack is navigation preparation, not
+            # evidence that this invocation has performed its recorded search.
+            self.progress = Progress()
+            state["stage"], snapshot["done"] = "search", False
+            state["nextGoal"] = "通过打开应用或返回，先到小红书首页，再执行录制的搜索意图。"
+            self._entry_prepared = (state["focusedPackage"] == PACKAGE and state["observation"]["kind"] == "feed")
+            if not self._entry_prepared:
+                self.actions = {key: action for key, action in self.actions.items()
+                                if action["method"] in {"open", "back", "wait", "blocked"}}
+                if state["focusedPackage"] == PACKAGE:
+                    self.actions[BACK] = {"method": "back", "role": "navigation", "label": "返回上一级，寻找搜索入口"}
+            snapshot["options"] = {key: value["label"] for key, value in self.actions.items()}
+            state["actionDescriptors"] = {key: {name: action.get(name) for name in ("method", "role", "label")}
+                                          for key, action in self.actions.items()}
+        if self.entry_strategy is not None:
+            state["recipeEntryReady"] = self._entry_prepared
         if state["stage"] == "search" and state["focusedPackage"] == PACKAGE:
             has_search = any(action.get("label") == "搜索" for action in self.actions.values())
             if state["observation"]["kind"] != "feed" or not has_search:
