@@ -14,6 +14,7 @@ import android.graphics.Shader
 import android.graphics.SweepGradient
 import android.os.SystemClock
 import android.view.View
+import androidx.core.view.isVisible
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -117,7 +118,7 @@ internal class ControlEffectsView(
         drawFrame(canvas, now)
         drawTarget(canvas, now)
         drawGestures(canvas, now)
-        if (visibility == VISIBLE) postInvalidateOnAnimation()
+        if (isVisible) postInvalidateOnAnimation()
     }
 
     private fun drawFrame(
