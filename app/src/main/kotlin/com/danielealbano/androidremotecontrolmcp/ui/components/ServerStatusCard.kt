@@ -5,7 +5,6 @@ package com.danielealbano.androidremotecontrolmcp.ui.components
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,8 +14,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Button
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.danielealbano.androidremotecontrolmcp.R
 import com.danielealbano.androidremotecontrolmcp.data.model.ChannelConnectionStatus
 import com.danielealbano.androidremotecontrolmcp.data.model.ServerStatus
+import com.danielealbano.androidremotecontrolmcp.services.control.ControlSessionState
 import com.danielealbano.androidremotecontrolmcp.ui.theme.AndroidRemoteControlMcpTheme
 
 private const val STATUS_DOT_SIZE_DP = 12
@@ -48,38 +51,66 @@ fun ServerStatusCard(
     onChannelStopClick: () -> Unit,
     startEnabled: Boolean,
     modifier: Modifier = Modifier,
+    controlState: ControlSessionState = ControlSessionState(),
 ) {
     ElevatedCard(
         modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-        ) {
+        Column(modifier = Modifier.padding(20.dp)) {
             Text(
-                text = "Services Status",
+                text = stringResource(R.string.orulink_service_title),
                 style = MaterialTheme.typography.titleLarge,
             )
-
-            Spacer(Modifier.height(12.dp))
-
-            // MCP Server row
-            ServiceRow(
-                label = "MCP Server",
-                statusText = serverStatusToText(serverStatus),
-                statusColor = serverStatusToColor(serverStatus, isSystemInDarkTheme()),
-                buttonText = if (serverStatus is ServerStatus.Running) "Stop" else "Start",
-                buttonEnabled = mcpStartStopButtonEnabled(serverStatus, startEnabled),
-                onButtonClick = if (serverStatus is ServerStatus.Running) onMcpStopClick else onMcpStartClick,
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = serverStatusToText(serverStatus),
+                style = MaterialTheme.typography.headlineSmall,
+                color = serverStatusToColor(serverStatus),
             )
-
             Spacer(Modifier.height(8.dp))
-
-            // Event Channel row
+            Text(
+                text = serviceDescription(serverStatus),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (serverStatus is ServerStatus.Running) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = stringResource(controlStatusResource(controlState)),
+                    style = MaterialTheme.typography.labelLarge,
+                    color =
+                        if (controlState.isPaused) {
+                            MaterialTheme.colorScheme.tertiary
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
+                )
+            }
+            Spacer(Modifier.height(20.dp))
+            Button(
+                onClick = if (serverStatus is ServerStatus.Running) onMcpStopClick else onMcpStartClick,
+                enabled = mcpStartStopButtonEnabled(serverStatus, startEnabled),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    stringResource(
+                        when (serverStatus) {
+                            is ServerStatus.Running -> R.string.orulink_stop_service
+                            is ServerStatus.Error -> R.string.orulink_retry_service
+                            else -> R.string.orulink_start_service
+                        },
+                    ),
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(12.dp))
             ServiceRow(
-                label = "Event Channel",
+                label = stringResource(R.string.orulink_channel_title),
                 statusText = channelStatusToText(channelStatus, channelEnabled),
-                statusColor = channelStatusToColor(channelStatus, channelEnabled, isSystemInDarkTheme()),
-                buttonText = if (channelEnabled) "Stop" else "Start",
+                statusColor = channelStatusToColor(channelStatus, channelEnabled),
+                buttonText = stringResource(if (channelEnabled) R.string.orulink_stop else R.string.orulink_start),
                 buttonEnabled = channelStartStopButtonEnabled(channelEnabled, startEnabled),
                 onButtonClick = if (channelEnabled) onChannelStopClick else onChannelStartClick,
             )
@@ -87,9 +118,29 @@ fun ServerStatusCard(
     }
 }
 
+@Composable
+private fun serviceDescription(status: ServerStatus): String {
+    if (status is ServerStatus.Error) return status.message
+    return stringResource(
+        when (status) {
+            is ServerStatus.Running -> R.string.orulink_service_running
+            is ServerStatus.Starting -> R.string.orulink_service_starting
+            is ServerStatus.Stopping -> R.string.orulink_service_stopping
+            else -> R.string.orulink_service_stopped
+        },
+    )
+}
+
+internal fun controlStatusResource(state: ControlSessionState): Int =
+    when {
+        state.isPaused -> R.string.orulink_control_paused
+        state.isActive -> R.string.orulink_control_active
+        else -> R.string.orulink_control_waiting
+    }
+
 /**
  * Whether the MCP Server start/stop button is enabled. Stop (Running) is always enabled;
- * Start (Stopped) requires [startEnabled] (accessibility granted); transient states are disabled.
+ * Start or retry requires [startEnabled] (accessibility granted); transient states are disabled.
  */
 internal fun mcpStartStopButtonEnabled(
     status: ServerStatus,
@@ -97,7 +148,7 @@ internal fun mcpStartStopButtonEnabled(
 ): Boolean =
     when (status) {
         is ServerStatus.Running -> true
-        is ServerStatus.Stopped -> startEnabled
+        is ServerStatus.Stopped, is ServerStatus.Error -> startEnabled
         else -> false
     }
 
@@ -174,29 +225,16 @@ private fun serverStatusToText(status: ServerStatus): String =
         is ServerStatus.Stopped -> stringResource(R.string.server_status_stopped)
         is ServerStatus.Starting -> stringResource(R.string.server_status_starting)
         is ServerStatus.Stopping -> stringResource(R.string.server_status_stopping)
-        is ServerStatus.Error -> stringResource(R.string.server_status_error, status.message)
+        is ServerStatus.Error -> stringResource(R.string.orulink_service_error_title)
     }
 
-private fun serverStatusToColor(
-    status: ServerStatus,
-    isDarkTheme: Boolean,
-): Color =
-    if (isDarkTheme) {
-        when (status) {
-            is ServerStatus.Running -> Color(0xFF81C784)
-            is ServerStatus.Stopped -> Color(0xFFEF5350)
-            is ServerStatus.Starting -> Color(0xFFFFD54F)
-            is ServerStatus.Stopping -> Color(0xFFFFD54F)
-            is ServerStatus.Error -> Color(0xFFFFB74D)
-        }
-    } else {
-        when (status) {
-            is ServerStatus.Running -> Color(0xFF4CAF50)
-            is ServerStatus.Stopped -> Color(0xFFF44336)
-            is ServerStatus.Starting -> Color(0xFFFFC107)
-            is ServerStatus.Stopping -> Color(0xFFFFC107)
-            is ServerStatus.Error -> Color(0xFFFF9800)
-        }
+@Composable
+private fun serverStatusToColor(status: ServerStatus): Color =
+    when (status) {
+        is ServerStatus.Running -> MaterialTheme.colorScheme.primary
+        is ServerStatus.Stopped -> MaterialTheme.colorScheme.onSurfaceVariant
+        is ServerStatus.Starting, is ServerStatus.Stopping -> MaterialTheme.colorScheme.tertiary
+        is ServerStatus.Error -> MaterialTheme.colorScheme.error
     }
 
 @Composable
@@ -205,36 +243,25 @@ private fun channelStatusToText(
     enabled: Boolean,
 ): String =
     if (!enabled) {
-        "Stopped"
+        stringResource(R.string.server_status_stopped)
     } else {
         when (status) {
-            is ChannelConnectionStatus.Idle -> "Idle"
-            is ChannelConnectionStatus.Active -> "Active"
+            is ChannelConnectionStatus.Idle -> stringResource(R.string.orulink_channel_idle)
+            is ChannelConnectionStatus.Active -> stringResource(R.string.orulink_channel_active)
             is ChannelConnectionStatus.Error -> status.message
         }
     }
 
+@Composable
 private fun channelStatusToColor(
     status: ChannelConnectionStatus,
     enabled: Boolean,
-    isDarkTheme: Boolean,
 ): Color =
-    if (!enabled) {
-        if (isDarkTheme) Color(0xFFEF5350) else Color(0xFFF44336)
-    } else {
-        when (status) {
-            is ChannelConnectionStatus.Idle -> {
-                Color.Gray
-            }
-
-            is ChannelConnectionStatus.Active -> {
-                if (isDarkTheme) Color(0xFF81C784) else Color(0xFF4CAF50)
-            }
-
-            is ChannelConnectionStatus.Error -> {
-                if (isDarkTheme) Color(0xFFFFB74D) else Color(0xFFFF9800)
-            }
-        }
+    when {
+        !enabled -> MaterialTheme.colorScheme.onSurfaceVariant
+        status is ChannelConnectionStatus.Active -> MaterialTheme.colorScheme.primary
+        status is ChannelConnectionStatus.Error -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
 @Preview(showBackground = true)

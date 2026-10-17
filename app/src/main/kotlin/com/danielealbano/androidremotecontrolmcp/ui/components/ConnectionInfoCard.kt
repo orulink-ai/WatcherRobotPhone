@@ -2,7 +2,10 @@
 
 package com.danielealbano.androidremotecontrolmcp.ui.components
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -10,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Share
@@ -31,13 +33,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.danielealbano.androidremotecontrolmcp.R
 import com.danielealbano.androidremotecontrolmcp.data.model.BindingAddress
@@ -108,14 +108,41 @@ internal fun buildConnectionString(
     tunnelEndpoints: List<TunnelEndpoint>,
     bearerToken: String,
 ): String =
-    buildString {
-        append("URL: $serverUrl")
-        tunnelEndpoints.forEach { append("\nTunnel: ${it.url}/mcp") }
-        if (bearerToken.isNotEmpty()) {
-            append("\nBearer Token: $bearerToken")
+    buildList {
+        if (serverUrl.isNotBlank()) add("URL: $serverUrl")
+        tunnelEndpoints.forEach { add("Tunnel: ${it.url}/mcp") }
+        if (bearerToken.isNotEmpty()) add("Bearer Token: $bearerToken")
+    }.joinToString("\n")
+
+/** A missing network address must never be presented as an available endpoint. */
+internal fun connectionServerUrl(
+    bindingAddress: BindingAddress,
+    ipAddress: String,
+    port: Int,
+    httpsEnabled: Boolean,
+    serverStatus: ServerStatus = ServerStatus.Stopped,
+): String? {
+    val running = serverStatus as? ServerStatus.Running
+    val address =
+        when (connectionBindingAddress(bindingAddress, serverStatus)) {
+            BindingAddress.LOCALHOST -> "127.0.0.1"
+            BindingAddress.NETWORK -> ipAddress.takeIf { it.isNotBlank() } ?: return null
         }
+    val scheme = if (running?.httpsEnabled ?: httpsEnabled) "https" else "http"
+    return "$scheme://$address:${running?.port ?: port}/mcp"
+}
+
+private fun connectionBindingAddress(
+    configured: BindingAddress,
+    status: ServerStatus,
+): BindingAddress =
+    if (status is ServerStatus.Running) {
+        if (status.bindingAddress == "127.0.0.1") BindingAddress.LOCALHOST else BindingAddress.NETWORK
+    } else {
+        configured
     }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ConnectionInfoCard(
     bindingAddress: BindingAddress,
@@ -132,41 +159,14 @@ fun ConnectionInfoCard(
 ) {
     var showToken by remember { mutableStateOf(false) }
 
-    val displayAddress =
-        when (bindingAddress) {
-            BindingAddress.LOCALHOST -> "127.0.0.1"
-            BindingAddress.NETWORK -> ipAddress
-        }
-    val scheme = if (httpsEnabled) "https" else "http"
-    val serverUrl = "$scheme://$displayAddress:$port/mcp"
+    val serverUrl = connectionServerUrl(bindingAddress, ipAddress, port, httpsEnabled, serverStatus)
     val displayToken = if (showToken) bearerToken else TOKEN_MASK
 
     val rowContent = tunnelRowContent(tunnelEnabled, serverStatus, tunnelStatus)
 
-    val labelStyle = MaterialTheme.typography.bodyMedium
-    val measurer = rememberTextMeasurer()
-    val density = LocalDensity.current
-
-    val ipLabel = stringResource(R.string.connection_info_ip)
-    val portLabel = stringResource(R.string.connection_info_port)
     val urlLabel = stringResource(R.string.connection_info_url)
     val publicUrlLabel = stringResource(R.string.remote_access_public_url_label)
     val tokenLabel = stringResource(R.string.connection_info_token)
-
-    val visibleLabels =
-        buildList {
-            add(ipLabel)
-            add(portLabel)
-            add(urlLabel)
-            if (rowContent != null) add(publicUrlLabel)
-            if (bearerToken.isNotEmpty()) add(tokenLabel)
-        }
-    val labelColumnWidth: Dp =
-        remember(visibleLabels, labelStyle, density) {
-            with(density) {
-                visibleLabels.maxOf { measurer.measure(it, labelStyle).size.width }.toDp()
-            }
-        }
 
     ElevatedCard(
         modifier = modifier.fillMaxWidth(),
@@ -181,23 +181,24 @@ fun ConnectionInfoCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            ConnectionInfoRow(label = ipLabel, labelWidth = labelColumnWidth) {
-                Text(text = displayAddress, style = MaterialTheme.typography.bodyMedium)
-            }
-            ConnectionInfoRow(label = portLabel, labelWidth = labelColumnWidth) {
-                Text(text = port.toString(), style = MaterialTheme.typography.bodyMedium)
-            }
-            ConnectionInfoRow(label = urlLabel, labelWidth = labelColumnWidth) {
-                Text(text = serverUrl, style = MaterialTheme.typography.bodyMedium)
+            ConnectionInstructions(connectionBindingAddress(bindingAddress, serverStatus), serverStatus)
+            Spacer(Modifier.height(16.dp))
+            ConnectionInfoRow(label = urlLabel) {
+                Text(
+                    text = serverUrl ?: stringResource(R.string.orulink_network_unavailable),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.weight(1f),
+                )
             }
             if (rowContent != null) {
-                ConnectionInfoRow(label = publicUrlLabel, labelWidth = labelColumnWidth) {
+                ConnectionInfoRow(label = publicUrlLabel) {
                     TunnelRowValue(content = rowContent)
                 }
             }
 
             if (bearerToken.isNotEmpty()) {
-                ConnectionInfoRow(label = tokenLabel, labelWidth = labelColumnWidth) {
+                ConnectionInfoRow(label = tokenLabel) {
                     Text(
                         text = displayToken,
                         style = MaterialTheme.typography.bodyMedium,
@@ -226,14 +227,18 @@ fun ConnectionInfoCard(
 
             val connectionString =
                 buildConnectionString(
-                    serverUrl = serverUrl,
+                    serverUrl = serverUrl.orEmpty(),
                     tunnelEndpoints = (rowContent as? TunnelRowContent.Connected)?.endpoints ?: emptyList(),
                     bearerToken = bearerToken,
                 )
-            Row(
-                modifier = Modifier.align(Alignment.End),
+            val canShare =
+                serverUrl != null ||
+                    (rowContent as? TunnelRowContent.Connected)?.endpoints?.any { it.valid } == true
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
             ) {
-                TextButton(onClick = { onCopyAll(connectionString) }) {
+                TextButton(onClick = { onCopyAll(connectionString) }, enabled = canShare) {
                     Icon(
                         imageVector = Icons.Default.ContentCopy,
                         contentDescription = null,
@@ -243,7 +248,7 @@ fun ConnectionInfoCard(
                         modifier = Modifier.padding(start = 4.dp),
                     )
                 }
-                TextButton(onClick = { onShare(connectionString) }) {
+                TextButton(onClick = { onShare(connectionString) }, enabled = canShare) {
                     Icon(
                         imageVector = Icons.Default.Share,
                         contentDescription = null,
@@ -255,6 +260,32 @@ fun ConnectionInfoCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ConnectionInstructions(
+    bindingAddress: BindingAddress,
+    serverStatus: ServerStatus,
+) {
+    val isLocal = bindingAddress == BindingAddress.LOCALHOST
+    Text(
+        text = stringResource(if (isLocal) R.string.orulink_usb_connection else R.string.orulink_lan_connection),
+        style = MaterialTheme.typography.titleMedium,
+    )
+    Spacer(Modifier.height(4.dp))
+    Text(
+        text = stringResource(if (isLocal) R.string.orulink_usb_condition else R.string.orulink_lan_condition),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    if (serverStatus !is ServerStatus.Running) {
+        Spacer(Modifier.height(4.dp))
+        Text(
+            stringResource(R.string.orulink_connection_stopped),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -325,22 +356,17 @@ private fun RowScope.TunnelRowValue(content: TunnelRowContent) {
 @Composable
 private fun ConnectionInfoRow(
     label: String,
-    labelWidth: Dp,
     modifier: Modifier = Modifier,
     value: @Composable RowScope.() -> Unit,
 ) {
-    Row(
-        modifier = modifier.padding(vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    Column(modifier = modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Text(
             text = label,
-            modifier = Modifier.width(labelWidth),
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(modifier = Modifier.width(12.dp))
-        value()
+        Spacer(Modifier.height(4.dp))
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { value() }
     }
 }
 
