@@ -6,15 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,10 +14,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.danielealbano.androidremotecontrolmcp.R
+import com.danielealbano.androidremotecontrolmcp.ui.components.OrulinkNavigationBar
 import com.danielealbano.androidremotecontrolmcp.ui.components.UpdateAvailableBanner
 import com.danielealbano.androidremotecontrolmcp.ui.navigation.SettingsRoute
 import com.danielealbano.androidremotecontrolmcp.ui.navigation.TopLevelRoute
@@ -66,20 +57,10 @@ fun MainScreen(
             }
         },
         bottomBar = {
-            NavigationBar {
-                listOf(
-                    Triple(TopLevelRoute.Server, Icons.Default.Dns, stringResource(R.string.tab_server)),
-                    Triple(TopLevelRoute.Settings, Icons.Default.Settings, stringResource(R.string.tab_settings)),
-                    Triple(TopLevelRoute.About, Icons.Default.Info, stringResource(R.string.tab_about)),
-                ).forEach { (route, icon, label) ->
-                    NavigationBarItem(
-                        selected = selectedTabRoute == route.route,
-                        onClick = { selectedTabRoute = route.route },
-                        icon = { Icon(icon, contentDescription = label) },
-                        label = { Text(label) },
-                    )
-                }
-            }
+            OrulinkNavigationBar(
+                selectedRoute = selectedTabRoute,
+                onSelectRoute = { selectedTabRoute = it },
+            )
         },
     ) { paddingValues ->
         when (selectedTabRoute) {

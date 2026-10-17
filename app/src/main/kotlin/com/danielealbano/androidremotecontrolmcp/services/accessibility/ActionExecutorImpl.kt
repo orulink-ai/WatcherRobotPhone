@@ -6,8 +6,10 @@ import android.graphics.Rect
 import android.os.Bundle
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import kotlin.coroutines.resume
@@ -696,7 +698,7 @@ class ActionExecutorImpl
                         )
                     if (refreshedId == nodeId) {
                         Log.d(TAG, "Cache hit for node '$nodeId', identity verified")
-                        val result = action(cached.node)
+                        val result = performActionWithFeedback(service, cached.node, action)
                         if (result.isSuccess) {
                             Log.d(TAG, "Node action '$actionName' succeeded (cached) on '$nodeId'")
                         } else {
@@ -738,7 +740,7 @@ class ActionExecutorImpl
                             findAccessibilityNodeByNodeId(realRootNode, nodeId, windowData.tree)
                         if (realNode != null) {
                             return try {
-                                val result = action(realNode)
+                                val result = performActionWithFeedback(service, realNode, action)
                                 if (result.isSuccess) {
                                     Log.d(
                                         TAG,
@@ -796,7 +798,7 @@ class ActionExecutorImpl
                 val realNode = findAccessibilityNodeByNodeId(rootNode, nodeId, windowData.tree)
                 if (realNode != null) {
                     return try {
-                        val result = action(realNode)
+                        val result = performActionWithFeedback(service, realNode, action)
                         if (result.isSuccess) {
                             Log.d(
                                 TAG,
@@ -828,6 +830,18 @@ class ActionExecutorImpl
             return Result.failure(
                 NoSuchElementException("Node '$nodeId' not found in any window's accessibility tree"),
             )
+        }
+
+        private fun performActionWithFeedback(
+            service: McpAccessibilityService,
+            node: AccessibilityNodeInfo,
+            action: (AccessibilityNodeInfo) -> Result<Unit>,
+        ): Result<Unit> {
+            val bounds = Rect()
+            node.getBoundsInScreen(bounds)
+            return action(node).also { result ->
+                if (result.isSuccess) service.showTargetFeedback(bounds)
+            }
         }
 
         private fun performGlobalAction(
@@ -874,47 +888,59 @@ class ActionExecutorImpl
             gesture: GestureDescription,
             description: String,
         ): Result<Unit> =
-            withTimeoutOrNull(GESTURE_TIMEOUT_MS) {
-                suspendCancellableCoroutine { continuation ->
-                    val callback =
-                        object :
-                            android.accessibilityservice.AccessibilityService.GestureResultCallback() {
-                            override fun onCompleted(gestureDescription: GestureDescription?) {
-                                Log.d(TAG, "Gesture completed: $description")
-                                if (continuation.isActive) {
-                                    continuation.resume(Result.success(Unit))
-                                }
-                            }
+            withContext(Dispatchers.Main) {
+                val feedbackToken = service.prepareGestureFeedback(gesture)
+                var dispatched = false
+                try {
+                    withTimeoutOrNull(GESTURE_TIMEOUT_MS) {
+                        suspendCancellableCoroutine { continuation ->
+                            val callback =
+                                object :
+                                    android.accessibilityservice.AccessibilityService.GestureResultCallback() {
+                                    override fun onCompleted(gestureDescription: GestureDescription?) {
+                                        service.finishGestureFeedback(feedbackToken)
+                                        Log.d(TAG, "Gesture completed: $description")
+                                        if (continuation.isActive) {
+                                            continuation.resume(Result.success(Unit))
+                                        }
+                                    }
 
-                            override fun onCancelled(gestureDescription: GestureDescription?) {
-                                Log.w(TAG, "Gesture cancelled: $description")
+                                    override fun onCancelled(gestureDescription: GestureDescription?) {
+                                        service.finishGestureFeedback(feedbackToken)
+                                        Log.w(TAG, "Gesture cancelled: $description")
+                                        if (continuation.isActive) {
+                                            continuation.resume(
+                                                Result.failure(
+                                                    RuntimeException("Gesture cancelled: $description"),
+                                                ),
+                                            )
+                                        }
+                                    }
+                                }
+
+                            dispatched = service.dispatchGesture(gesture, callback, null)
+                            if (dispatched) service.showGestureFeedback(gesture)
+                            if (!dispatched) {
+                                service.finishGestureFeedback(feedbackToken)
+                                Log.e(TAG, "Failed to dispatch gesture: $description")
                                 if (continuation.isActive) {
                                     continuation.resume(
                                         Result.failure(
-                                            RuntimeException("Gesture cancelled: $description"),
+                                            RuntimeException("Failed to dispatch gesture: $description"),
                                         ),
                                     )
                                 }
                             }
                         }
-
-                    val dispatched = service.dispatchGesture(gesture, callback, null)
-                    if (!dispatched) {
-                        Log.e(TAG, "Failed to dispatch gesture: $description")
-                        if (continuation.isActive) {
-                            continuation.resume(
-                                Result.failure(
-                                    RuntimeException("Failed to dispatch gesture: $description"),
-                                ),
-                            )
-                        }
+                    } ?: run {
+                        Log.e(TAG, "Gesture timed out after ${GESTURE_TIMEOUT_MS}ms: $description")
+                        Result.failure(
+                            RuntimeException("Gesture timed out after ${GESTURE_TIMEOUT_MS}ms: $description"),
+                        )
                     }
+                } finally {
+                    if (!dispatched) service.finishGestureFeedback(feedbackToken)
                 }
-            } ?: run {
-                Log.e(TAG, "Gesture timed out after ${GESTURE_TIMEOUT_MS}ms: $description")
-                Result.failure(
-                    RuntimeException("Gesture timed out after ${GESTURE_TIMEOUT_MS}ms: $description"),
-                )
             }
 
         /**

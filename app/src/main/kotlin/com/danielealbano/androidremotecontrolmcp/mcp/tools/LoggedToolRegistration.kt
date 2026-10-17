@@ -2,28 +2,34 @@ package com.danielealbano.androidremotecontrolmcp.mcp.tools
 
 import com.danielealbano.androidremotecontrolmcp.data.model.ServerLogEntry
 import com.danielealbano.androidremotecontrolmcp.data.repository.ServerLogRepository
+import com.danielealbano.androidremotecontrolmcp.services.control.ControlPausedException
+import com.danielealbano.androidremotecontrolmcp.services.control.ControlSession
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolRequest
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
+import io.modelcontextprotocol.kotlin.sdk.types.TextContent
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlinx.coroutines.isActive
 import kotlin.coroutines.coroutineContext
 
 private const val NANOS_PER_MILLI = 1_000_000L
 private const val FAILED_MARKER = "failed"
+private const val CONTROL_PAUSED_MESSAGE =
+    "Remote control is paused or stopped by the device user. Resume control on the device before retrying."
 
 /**
  * Wraps a tool handler so every invocation records a TOOL_CALL server-log entry: un-prefixed tool
  * name + duration, plus the constant NON-SENSITIVE [FAILED_MARKER] on failure (isError result or
  * thrown exception). Parameters and free-form error text are NEVER logged (tool errors can echo
- * device-derived data such as URLs). try/finally keeps the wrapper fully transparent — NO
- * exception is caught (and no linting suppression is needed); a cancelled invocation is not
- * logged (its coroutine is no longer active in the finally block).
+ * device-derived data such as URLs). Local takeover becomes a tool error; all other exceptions
+ * propagate. An externally cancelled invocation is not logged because its coroutine is no
+ * longer active in the finally block.
  */
 internal fun loggedToolHandler(
     serverLog: ServerLogRepository,
     toolName: String,
     toolCallIndicator: ToolCallIndicator = ToolCallIndicator.NONE,
+    controlSession: ControlSession? = null,
     handler: suspend (CallToolRequest) -> CallToolResult,
 ): suspend (CallToolRequest) -> CallToolResult =
     { request ->
@@ -31,7 +37,12 @@ internal fun loggedToolHandler(
         var completed: CallToolResult? = null
         runCatching { toolCallIndicator.onToolCallStarted(toolName) }
         try {
-            val result = handler(request)
+            val result =
+                try {
+                    controlSession?.runTool(toolName) { handler(request) } ?: handler(request)
+                } catch (_: ControlPausedException) {
+                    CallToolResult(content = listOf(TextContent(text = CONTROL_PAUSED_MESSAGE)), isError = true)
+                }
             completed = result
             result
         } finally {
@@ -71,6 +82,7 @@ class LoggedToolRegistrar(
     private val server: Server,
     private val serverLog: ServerLogRepository,
     private val toolCallIndicator: ToolCallIndicator = ToolCallIndicator.NONE,
+    private val controlSession: ControlSession? = null,
 ) {
     /** [Server.addTool] with per-call TOOL_CALL logging. [toolName] is the un-prefixed display name. */
     fun addTool(
@@ -80,7 +92,7 @@ class LoggedToolRegistrar(
         inputSchema: ToolSchema,
         handler: suspend (CallToolRequest) -> CallToolResult,
     ) {
-        val wrapped = loggedToolHandler(serverLog, toolName, toolCallIndicator, handler)
+        val wrapped = loggedToolHandler(serverLog, toolName, toolCallIndicator, controlSession, handler)
         server.addTool(name = name, description = description, inputSchema = inputSchema) { request ->
             wrapped(request)
         }

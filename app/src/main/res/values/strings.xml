@@ -1,12 +1,12 @@
 <resources>
-    <string name="app_name">Android Remote Control MCP</string>
-    <string name="share_target_label">Android Remote Control MCP</string>
+    <string name="app_name">Orulink Control</string>
+    <string name="share_target_label">Orulink Control</string>
 
     <!-- Accessibility Service -->
     <string name="accessibility_service_description">Provides remote control capabilities via MCP protocol. Allows introspecting UI elements and performing actions on the device.</string>
 
     <!-- Notification Channel -->
-    <string name="notification_channel_mcp_server_id">mcp_server_channel</string>
+    <string name="notification_channel_mcp_server_id" translatable="false">mcp_server_channel</string>
     <string name="notification_channel_mcp_server_name">MCP Server</string>
     <!-- Notification Content -->
     <string name="notification_mcp_server_title">MCP Server Running</string>
@@ -289,11 +289,11 @@
     <string name="notification_channel_oauth_approval_name">Connection approvals</string>
     <string name="notification_oauth_approval_title">Connection request pending</string>
     <string name="notification_oauth_approval_body">%1$d request(s) waiting — tap to review</string>
-    <string name="notification_channel_update_name">App updates</string>
-    <string name="notification_update_available_title">Update available</string>
-    <string name="notification_update_available_body">Version %1$s is available — tap to view the release</string>
-    <string name="update_banner_text">Update available: v%1$s — tap to view</string>
-    <string name="update_banner_open_description">Open the release page</string>
+    <string name="notification_channel_update_name">Upstream project updates</string>
+    <string name="notification_update_available_title">Upstream project update available</string>
+    <string name="notification_update_available_body">Upstream version %1$s is available — tap to view the release</string>
+    <string name="update_banner_text">Upstream project update: v%1$s — tap to view</string>
+    <string name="update_banner_open_description">Open the upstream release page</string>
     <string name="about_updates_section">Updates</string>
     <string name="about_auto_update_label">Automatically check for updates</string>
     <string name="about_check_updates_button">Check for updates</string>
