@@ -4,6 +4,8 @@
 
 本机已安装的新 `pi-phone` 使用 **`phone-control / auto`**：同一 PI AgentLoop 内选择已验证录制流程，或使用 Jev；需要时重新观察后由 DeepSeek 兜底。动作通过本项目 OwnMcp 连接 `watcher_android` 的 **LAN HTTP MCP**，终端入口不调用 ADB。
 
+App 录制后一键提交、PI 验证、生成、复用和安装新 Skill 的链路见 [App 闭环安装与验收](../../docs/research/app-workflow-loop.md)。它与下文保留的专用 benchmark 入口分开；新链路全部通过 LAN MCP。
+
 ```text
 pi-phone
   → 确认当前 provider / model 为 phone-control / auto
@@ -155,7 +157,7 @@ export PHONE_BENCH_RECIPE="$PHONE_BENCH_OUTPUT_DIR/skill-bundle/recipe.json"
   "$PHONE_BENCH_OUTPUT_DIR/android-draft"
 ```
 
-**App 原始事件只生成 `needs-verification` 草稿，不生成可直接执行的配方。** 手机导出、电脑导入、PI 配对示教/验证仍需人工发起，尚未打通 App 内一键生成已验证 Skill。`verified-demonstration` 表示成功示教已被共同观察器校验，不代表人工审阅已经发生。产品原型中的参数编辑、浮条和自动恢复不等于当前已实现能力。
+**这个手工导入命令只生成 `needs-verification` 草稿，不生成可直接执行的配方。** 新 App 入口由伴随服务领取手机队列中的录制，先由 PI 消费并验证全部原始意图，再生成并复用 Skill；最终实机状态以 [App 验收记录](../../docs/research/app-workflow-loop.md) 为准。`verified-demonstration` 表示成功示教已被共同观察器校验，不代表人工审阅已经发生。产品原型中的参数编辑、浮条和任意任务恢复不等于当前已实现能力。
 
 新对比报告读取预设的 `rr-r{1,2,3}-jev` 与 `rr-r{1,2,3}-skill` 六轮。将技能包中的 `generation.json` 放在运行数据根目录，可单列生成成本；额外录像 ID 为 `video-jev` / `video-skill`：
 

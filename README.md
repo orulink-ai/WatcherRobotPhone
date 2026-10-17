@@ -81,10 +81,14 @@ See [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md) for the full tool reference with inpu
 - Headless setup via ADB (configure, grant permissions, start/stop server without UI)
 - Record Xiaohongshu accessibility events, pause, review and export a local workflow draft
 
-### PI Workflow Recording Preview
+### PI Workflow Recording
 
-The app's recording entry captures semantic accessibility events. Exported JSON remains a draft:
-paired before/after observations are required before it can become an executable recipe.
+The app's recording entry captures semantic accessibility events. After reviewing a recording,
+submit “Generate Skill and run with PI” to the persistent phone queue. The local companion
+verifies the recorded intents with PI, generates a paired recipe, replays it with PI, and
+publishes a successful bundle to the profile used by new `pi-phone` sessions.
+Exported JSON remains a draft: paired before/after observations are required before execution.
+See the [App-to-PI setup and acceptance status](docs/research/app-workflow-loop.md).
 The [PI phone workflow experiments](experiments/pi-phone-use/README.md) generate `SKILL.md` and
 verified steps from an actual PI demonstration, then resolve fresh controls and verify every result
 on replay. The current adapter uses a fixed Xiaohongshu task and stops on unrecognized changes.
