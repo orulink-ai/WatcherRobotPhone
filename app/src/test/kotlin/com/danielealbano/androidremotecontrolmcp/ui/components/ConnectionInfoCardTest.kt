@@ -1,5 +1,6 @@
 package com.danielealbano.androidremotecontrolmcp.ui.components
 
+import com.danielealbano.androidremotecontrolmcp.data.model.BindingAddress
 import com.danielealbano.androidremotecontrolmcp.data.model.ServerStatus
 import com.danielealbano.androidremotecontrolmcp.data.model.TunnelEndpoint
 import com.danielealbano.androidremotecontrolmcp.data.model.TunnelProviderType.CLOUDFLARE
@@ -30,6 +31,44 @@ class ConnectionInfoCardTest {
     ) = TunnelEndpoint(url, valid)
 
     private fun connected(vararg urls: String) = TunnelStatus.Connected(urls.map { ep(it) }, CLOUDFLARE)
+
+    @Test
+    fun `missing network address does not produce a connectable URL`() {
+        assertNull(connectionServerUrl(BindingAddress.NETWORK, "", 8080, false))
+        assertNull(connectionServerUrl(BindingAddress.NETWORK, "   ", 8080, false))
+    }
+
+    @Test
+    fun `USB connection always uses loopback`() {
+        assertEquals(
+            "http://127.0.0.1:8080/mcp",
+            connectionServerUrl(BindingAddress.LOCALHOST, "192.168.1.2", 8080, false),
+        )
+    }
+
+    @Test
+    fun `network connection uses current address and transport`() {
+        assertEquals(
+            "https://192.168.1.2:8443/mcp",
+            connectionServerUrl(BindingAddress.NETWORK, "192.168.1.2", 8443, true),
+        )
+    }
+
+    @Test
+    fun `running service endpoint takes priority over pending settings`() {
+        assertEquals(
+            "http://127.0.0.1:8080/mcp",
+            connectionServerUrl(BindingAddress.NETWORK, "192.168.1.2", 8443, true, running),
+        )
+    }
+
+    @Test
+    fun `tunnel can be shared without an unavailable LAN URL`() {
+        assertEquals(
+            "Tunnel: https://x.example.com/mcp\nBearer Token: test-token",
+            buildConnectionString("", listOf(ep("https://x.example.com")), "test-token"),
+        )
+    }
 
     @Test
     fun `serverUrl includes mcp suffix`() {

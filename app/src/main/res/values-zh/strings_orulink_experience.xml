@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="orulink_home_title">Orulink</string>
+    <string name="orulink_home_subtitle">让 Android 与智能体连接</string>
+    <string name="orulink_service_title">设备控制</string>
+    <string name="orulink_service_stopped">启动服务后，可接收 MCP 控制请求。</string>
+    <string name="orulink_service_running">服务已启动，请使用下方信息连接智能体。</string>
+    <string name="orulink_service_starting">正在准备控制服务…</string>
+    <string name="orulink_service_stopping">正在关闭控制服务…</string>
+    <string name="orulink_start_service">启动服务</string>
+    <string name="orulink_stop_service">停止服务</string>
+    <string name="orulink_retry_service">重试启动</string>
+    <string name="orulink_control_paused">已暂停接收远程指令</string>
+    <string name="orulink_control_active">智能体正在操作设备</string>
+    <string name="orulink_control_waiting">等待控制请求</string>
+    <string name="orulink_channel_title">事件通道</string>
+    <string name="orulink_channel_idle">等待事件</string>
+    <string name="orulink_channel_active">通道已启用</string>
+    <string name="orulink_start">启动</string>
+    <string name="orulink_stop">停止</string>
+    <string name="orulink_setup_section">设备设置</string>
+    <string name="orulink_usb_connection">USB / ADB 连接</string>
+    <string name="orulink_usb_condition">下方本机地址仅设备本身可用。电脑通过 USB 连接后，需要使用 ADB 转发此端口。</string>
+    <string name="orulink_lan_connection">局域网连接</string>
+    <string name="orulink_lan_condition">在同一可互通网络的电脑上使用此地址。服务已启动不代表客户端已连接。</string>
+    <string name="orulink_connection_stopped">请先启动服务，再连接客户端。</string>
+    <string name="orulink_network_unavailable">暂无可用的网络地址</string>
+    <string name="orulink_service_error_title">服务启动失败</string>
+    <string name="server_status_running">运行中</string>
+    <string name="server_status_stopped">已停止</string>
+    <string name="server_status_starting">正在启动…</string>
+    <string name="server_status_stopping">正在停止…</string>
+    <string name="server_status_error">启动失败：%1$s</string>
+    <string name="connection_info_title">连接信息</string>
+    <string name="connection_info_token">访问令牌</string>
+    <string name="connection_info_copy_all">复制连接信息</string>
+    <string name="connection_info_share">分享</string>
+    <string name="config_token_show">显示访问令牌</string>
+    <string name="config_token_hide">隐藏访问令牌</string>
+    <string name="config_token_copy">复制访问令牌</string>
+    <string name="copied_to_clipboard">已复制到剪贴板</string>
+</resources>

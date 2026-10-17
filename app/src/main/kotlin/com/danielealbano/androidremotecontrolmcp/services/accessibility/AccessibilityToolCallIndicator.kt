@@ -17,6 +17,7 @@ class AccessibilityToolCallIndicator : ToolCallIndicator {
 
     override fun setEnabled(enabled: Boolean) {
         this.enabled = enabled
+        McpAccessibilityService.setControlOverlayEnabled(enabled)
         if (!enabled) McpAccessibilityService.hideToolCallIndicator()
     }
 }
