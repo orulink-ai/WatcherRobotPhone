@@ -219,6 +219,7 @@ android {
     defaultConfig {
         applicationId = "com.danielealbano.androidremotecontrolmcp"
         minSdk = 33
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         targetSdk = 34
         versionCode = versionCodeProp
         versionName = versionNameProp
@@ -435,6 +436,8 @@ dependencies {
     implementation(libs.onnxruntime.android)
 
     // Unit Testing
+    androidTestImplementation(libs.test.runner)
+
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter.api)
     testImplementation(libs.junit.jupiter.params)

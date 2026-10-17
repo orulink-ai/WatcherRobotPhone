@@ -2,34 +2,37 @@ package com.danielealbano.androidremotecontrolmcp.services.accessibility
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.accessibilityservice.GestureDescription
 import android.accessibilityservice.InputMethod
 import android.content.ComponentCallbacks2
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
-import android.graphics.Color
-import android.graphics.PixelFormat
-import android.graphics.drawable.GradientDrawable
+import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.Display
-import android.view.Gravity
-import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
-import android.widget.TextView
+import com.danielealbano.androidremotecontrolmcp.services.control.ControlOverlayController
+import com.danielealbano.androidremotecontrolmcp.services.control.ControlSession
+import com.danielealbano.androidremotecontrolmcp.services.mcp.McpServerService
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.Executor
 import kotlin.coroutines.resume
@@ -41,6 +44,8 @@ class McpAccessibilityService : AccessibilityService() {
     @InstallIn(SingletonComponent::class)
     interface NodeCacheEntryPoint {
         fun nodeCache(): AccessibilityNodeCache
+
+        fun controlSession(): ControlSession
     }
 
     private var serviceScope: CoroutineScope? = null
@@ -49,7 +54,7 @@ class McpAccessibilityService : AccessibilityService() {
 
     private var cacheInvalidationDebouncer: CacheInvalidationDebouncer? = null
 
-    private var toolCallIndicatorView: View? = null
+    private var controlOverlay: ControlOverlayController? = null
 
     @Volatile
     private var currentPackageName: String? = null
@@ -63,6 +68,8 @@ class McpAccessibilityService : AccessibilityService() {
         instance = this
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
         serviceScope = scope
+        controlOverlay = createControlOverlay(scope)
+        controlOverlay?.setEnabled(controlOverlayEnabled)
         nodeCache = resolveNodeCache()
         cacheInvalidationDebouncer =
             CacheInvalidationDebouncer(
@@ -131,12 +138,13 @@ class McpAccessibilityService : AccessibilityService() {
         nodeCache?.clear()
         nodeCache = null
 
+        controlOverlay?.destroy()
+        controlOverlay = null
         serviceScope?.cancel()
         serviceScope = null
         currentPackageName = null
         currentActivityName = null
         inputMethodInstance = null
-        removeToolCallIndicator()
         instance = null
 
         super.onDestroy()
@@ -178,7 +186,10 @@ class McpAccessibilityService : AccessibilityService() {
      */
     fun getAccessibilityWindows(): List<AccessibilityWindowInfo> =
         try {
-            windows ?: emptyList()
+            windows?.filterNot {
+                it.type == AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY &&
+                    ControlOverlayController.isControlWindow(it.title)
+            } ?: emptyList()
         } catch (
             @Suppress("TooGenericExceptionCaught") e: Exception,
         ) {
@@ -245,58 +256,49 @@ class McpAccessibilityService : AccessibilityService() {
         return method
     }
 
-    private fun showToolCallIndicatorInternal(toolName: String) {
-        val windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        val textView = (toolCallIndicatorView as? TextView) ?: createToolCallIndicatorView()
-        textView.text = "MCP controlling · ${formatToolName(toolName)}"
-        if (toolCallIndicatorView == null) {
-            runCatching {
-                windowManager.addView(textView, createToolCallIndicatorLayoutParams())
-                toolCallIndicatorView = textView
-            }.onFailure { Log.w(TAG, "Could not show MCP tool-call indicator", it) }
-        }
-    }
-
-    private fun removeToolCallIndicator() {
-        val view = toolCallIndicatorView ?: return
-        toolCallIndicatorView = null
-        val windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        runCatching { windowManager.removeView(view) }
-            .onFailure { Log.w(TAG, "Could not remove MCP tool-call indicator", it) }
-    }
-
-    private fun createToolCallIndicatorView(): TextView {
-        val horizontalPadding = TOOL_INDICATOR_HORIZONTAL_PADDING_DP.dpToPx()
-        val verticalPadding = TOOL_INDICATOR_VERTICAL_PADDING_DP.dpToPx()
-        return TextView(this).apply {
-            setTextColor(Color.WHITE)
-            textSize = TOOL_INDICATOR_TEXT_SIZE_SP
-            setPadding(horizontalPadding, verticalPadding, horizontalPadding, verticalPadding)
-            background =
-                GradientDrawable().apply {
-                    setColor(TOOL_INDICATOR_BACKGROUND_COLOR)
-                    cornerRadius = TOOL_INDICATOR_CORNER_RADIUS_DP.dpToPx().toFloat()
-                }
-            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-        }
-    }
-
-    private fun createToolCallIndicatorLayoutParams(): WindowManager.LayoutParams =
-        WindowManager
-            .LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                PixelFormat.TRANSLUCENT,
-            ).apply {
-                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-                y = TOOL_INDICATOR_TOP_MARGIN_DP.dpToPx()
+    private fun createControlOverlay(scope: CoroutineScope): ControlOverlayController? =
+        runCatching {
+            val session =
+                EntryPointAccessors
+                    .fromApplication(applicationContext, NodeCacheEntryPoint::class.java)
+                    .controlSession()
+            ControlOverlayController(this, session, scope) {
+                startService(Intent(this, McpServerService::class.java).setAction(McpServerService.ACTION_STOP))
             }
+        }.onFailure { Log.w(TAG, "Could not initialize control overlay", it) }.getOrNull()
 
-    private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
+    /** Called on Main immediately before dispatching a gesture. */
+    suspend fun prepareGestureFeedback(gesture: GestureDescription): Long =
+        try {
+            controlOverlay?.prepareGesture(gesture) ?: 0L
+        } catch (error: CancellationException) {
+            throw error
+        } catch (
+            @Suppress("TooGenericExceptionCaught") error: Exception,
+        ) {
+            Log.w(TAG, "Could not prepare gesture feedback", error)
+            0L
+        }
+
+    fun finishGestureFeedback(token: Long) {
+        updateControlOverlay { it.finishGesture(token) }
+    }
+
+    fun showGestureFeedback(gesture: GestureDescription) {
+        updateControlOverlay { it.showGesture(gesture) }
+    }
+
+    fun showTargetFeedback(bounds: Rect) {
+        val copy = Rect(bounds)
+        updateControlOverlay { it.showTarget(copy) }
+    }
+
+    private fun updateControlOverlay(update: (ControlOverlayController) -> Unit) {
+        serviceScope?.launch(Dispatchers.Main.immediate) {
+            runCatching { controlOverlay?.let(update) }
+                .onFailure { Log.w(TAG, "Could not update control feedback", it) }
+        }
+    }
 
     private fun configureServiceInfo() {
         serviceInfo =
@@ -338,6 +340,16 @@ class McpAccessibilityService : AccessibilityService() {
      * @return Bitmap of the screenshot, or null if capture failed or timed out.
      */
     suspend fun takeScreenshotBitmap(timeoutMs: Long = SCREENSHOT_TIMEOUT_MS): Bitmap? =
+        withContext(Dispatchers.Main) {
+            val overlay = controlOverlay
+            if (overlay == null) {
+                captureScreenshotBitmap(timeoutMs)
+            } else {
+                overlay.withoutVisuals { captureScreenshotBitmap(timeoutMs) }
+            }
+        }
+
+    private suspend fun captureScreenshotBitmap(timeoutMs: Long): Bitmap? =
         withTimeoutOrNull(timeoutMs) {
             suspendCancellableCoroutine { continuation ->
                 val executor = Executor { it.run() }
@@ -352,6 +364,8 @@ class McpAccessibilityService : AccessibilityService() {
                             screenshot.hardwareBuffer.close()
                             if (continuation.isActive) {
                                 continuation.resume(bitmap)
+                            } else {
+                                bitmap?.recycle()
                             }
                         }
 
@@ -393,12 +407,9 @@ class McpAccessibilityService : AccessibilityService() {
         private const val TAG = "MCP:AccessibilityService"
         private const val NOTIFICATION_TIMEOUT_MS = 100L
         private const val SCREENSHOT_TIMEOUT_MS = 5000L
-        private const val TOOL_INDICATOR_HORIZONTAL_PADDING_DP = 16
-        private const val TOOL_INDICATOR_VERTICAL_PADDING_DP = 8
-        private const val TOOL_INDICATOR_CORNER_RADIUS_DP = 18
-        private const val TOOL_INDICATOR_TOP_MARGIN_DP = 12
-        private const val TOOL_INDICATOR_TEXT_SIZE_SP = 13f
-        private const val TOOL_INDICATOR_BACKGROUND_COLOR = 0xE6212121.toInt()
+
+        @Volatile
+        private var controlOverlayEnabled = true
 
         /**
          * Length of the QUIET GAP (no further window-structure events) that must elapse before the
@@ -423,20 +434,19 @@ class McpAccessibilityService : AccessibilityService() {
         var inputMethodInstance: McpInputMethod? = null
             private set
 
-        fun showToolCallIndicator(toolName: String) {
-            if (instance == null) return
-            Handler(Looper.getMainLooper()).post {
-                instance?.showToolCallIndicatorInternal(toolName)
-            }
+        fun setControlOverlayEnabled(enabled: Boolean) {
+            controlOverlayEnabled = enabled
+            Handler(Looper.getMainLooper()).post { instance?.controlOverlay?.setEnabled(enabled) }
+        }
+
+        fun showToolCallIndicator(
+            @Suppress("UNUSED_PARAMETER") toolName: String,
+        ) {
+            Handler(Looper.getMainLooper()).post { instance?.controlOverlay?.refresh() }
         }
 
         fun hideToolCallIndicator() {
-            val service = instance ?: return
-            Handler(Looper.getMainLooper()).post {
-                if (instance === service) {
-                    service.removeToolCallIndicator()
-                }
-            }
+            Handler(Looper.getMainLooper()).post { instance?.controlOverlay?.refresh() }
         }
     }
 }

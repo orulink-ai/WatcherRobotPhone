@@ -2,18 +2,23 @@ package com.danielealbano.androidremotecontrolmcp.mcp.tools
 
 import com.danielealbano.androidremotecontrolmcp.data.model.ServerLogEntry
 import com.danielealbano.androidremotecontrolmcp.mcp.McpToolException
+import com.danielealbano.androidremotecontrolmcp.services.control.ControlSession
 import com.danielealbano.androidremotecontrolmcp.testutil.RecordingServerLogRepository
-import io.mockk.mockk
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolRequest
+import io.modelcontextprotocol.kotlin.sdk.types.CallToolRequestParams
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
 import io.modelcontextprotocol.kotlin.sdk.types.TextContent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -21,7 +26,7 @@ import org.junit.jupiter.api.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 @DisplayName("loggedToolHandler")
 class LoggedToolHandlerTest {
-    private val request = mockk<CallToolRequest>()
+    private val request = CallToolRequest(CallToolRequestParams(name = "tap"))
 
     private class RecordingToolCallIndicator : ToolCallIndicator {
         val events = mutableListOf<String>()
@@ -203,5 +208,71 @@ class LoggedToolHandlerTest {
             job.cancelAndJoin()
 
             assertTrue(recorder.ofType(ServerLogEntry.Type.TOOL_CALL).isEmpty())
+        }
+
+    @Test
+    fun `paused control returns a fixed tool error without executing the handler`() =
+        runTest {
+            val session = ControlSession()
+            val recorder = RecordingServerLogRepository()
+            var executed = false
+            val handler =
+                loggedToolHandler(recorder, "tap", controlSession = session) {
+                    executed = true
+                    CallToolResult(content = emptyList())
+                }
+            session.pause()
+
+            val result = handler(request)
+
+            assertFalse(executed)
+            assertTrue(result.isError == true)
+            assertEquals(
+                "Remote control is paused or stopped by the device user. Resume control on the device before retrying.",
+                (result.content.single() as TextContent).text,
+            )
+            assertEquals("failed", recorder.ofType(ServerLogEntry.Type.TOOL_CALL).single().message)
+        }
+
+    @Test
+    fun `local takeover cancels an executing handler and returns a tool error`() =
+        runTest {
+            val session = ControlSession()
+            val recorder = RecordingServerLogRepository()
+            var stopped = false
+            val handler =
+                loggedToolHandler(recorder, "tap", controlSession = session) {
+                    assertEquals("tap", session.state.value.activeTool)
+                    try {
+                        awaitCancellation()
+                    } finally {
+                        stopped = true
+                    }
+                }
+            val call = async { handler(request) }
+            runCurrent()
+
+            session.pause()
+
+            assertTrue(call.await().isError == true)
+            assertTrue(stopped)
+            assertEquals("failed", recorder.ofType(ServerLogEntry.Type.TOOL_CALL).single().message)
+        }
+
+    @Test
+    fun `external cancellation with a control session still propagates without logging`() =
+        runTest {
+            val session = ControlSession()
+            val recorder = RecordingServerLogRepository()
+            val handler =
+                loggedToolHandler(recorder, "tap", controlSession = session) { awaitCancellation() }
+            val call = launch { handler(request) }
+            runCurrent()
+
+            call.cancelAndJoin()
+
+            assertTrue(call.isCancelled)
+            assertFalse(session.state.value.isActive)
+            assertTrue(recorder.entries.isEmpty())
         }
 }
