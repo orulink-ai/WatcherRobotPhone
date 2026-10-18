@@ -26,12 +26,29 @@ class ControlCursorTimelineTest {
     }
 
     @Test
-    fun `completed actions hold briefly then fade and disappear without idle labels`() {
+    fun `unconfirmed execution feedback expires without creating completion`() {
         val duration = 100L
         val fadeStarts = duration + ControlCursorTimeline.HOLD_MS
         val disappears = fadeStarts + ControlCursorTimeline.FADE_MS
         assertEquals(1f, ControlCursorTimeline.sample(fadeStarts, 0L, duration)?.alpha)
         assertTrue(ControlCursorTimeline.sample(fadeStarts + 1L, 0L, duration)!!.alpha < 1f)
         assertNull(ControlCursorTimeline.sample(disappears, 0L, duration))
+    }
+
+    @Test
+    fun `confirmed completion has its own nine hundred millisecond hold and two hundred millisecond fade`() {
+        assertEquals(1f, ControlCursorTimeline.completionAlpha(0L))
+        assertEquals(1f, ControlCursorTimeline.completionAlpha(900L))
+        assertEquals(0.5f, ControlCursorTimeline.completionAlpha(1000L))
+        assertNull(ControlCursorTimeline.completionAlpha(1100L))
+    }
+
+    @Test
+    fun `accepted click pulse presses then releases within two hundred forty milliseconds`() {
+        assertEquals(1f, ControlCursorTimeline.clickEffect(0L)!!.scale)
+        assertTrue(ControlCursorTimeline.clickEffect(120L)!!.scale < 0.95f)
+        assertTrue(ControlCursorTimeline.clickEffect(220L)!!.scale > ControlCursorTimeline.clickEffect(120L)!!.scale)
+        assertNull(ControlCursorTimeline.clickEffect(240L))
+        assertNull(ControlCursorTimeline.clickEffect(-1L))
     }
 }

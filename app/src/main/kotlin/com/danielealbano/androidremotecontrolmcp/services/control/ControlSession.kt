@@ -19,6 +19,7 @@ data class ControlSessionState(
     val isPaused: Boolean = false,
     val revision: Long = 0,
     val isTakenOver: Boolean = false,
+    val isEngaged: Boolean = false,
 ) {
     val isActive: Boolean get() = activeTool != null
 }
@@ -35,8 +36,47 @@ class ControlSession
     constructor() {
         private val lock = Any()
         private val activeTools = linkedMapOf<Job, String>()
+        private var explicitlyExited = false
         private val _state = MutableStateFlow(ControlSessionState())
         val state: StateFlow<ControlSessionState> = _state.asStateFlow()
+
+        /** Local entry persists across idle gaps; it does not imply that a remote client is connected. */
+        fun enterControl() {
+            synchronized(lock) {
+                val previous = _state.value
+                if (previous.isEngaged && !previous.isPaused) return
+                explicitlyExited = false
+                _state.value =
+                    previous.copy(
+                        isEngaged = true,
+                        isPaused = false,
+                        isTakenOver = false,
+                        revision = previous.revision + 1,
+                    )
+            }
+        }
+
+        /** Explicit exit requires a later local entry, so remote calls cannot reopen control. */
+        fun exitControl() {
+            val interrupted =
+                synchronized(lock) {
+                    val previous = _state.value
+                    if (explicitlyExited) return
+                    explicitlyExited = true
+                    drainActiveTools().also {
+                        _state.value =
+                            previous.copy(
+                                activeTool = null,
+                                lastTool = null,
+                                isEngaged = false,
+                                isPaused = true,
+                                isTakenOver = false,
+                                revision = previous.revision + 1,
+                            )
+                    }
+                }
+            interrupted.forEach { it.cancel(ControlInterruptionException("AI control exited on the device.")) }
+        }
 
         suspend fun <T> runTool(
             toolName: String,
@@ -83,7 +123,7 @@ class ControlSession
 
         fun resume() {
             synchronized(lock) {
-                if (!_state.value.isPaused) return
+                if (explicitlyExited || !_state.value.isPaused) return
                 _state.value =
                     _state.value.copy(isPaused = false, isTakenOver = false, revision = _state.value.revision + 1)
             }
@@ -92,6 +132,7 @@ class ControlSession
         fun reset() {
             val interrupted =
                 synchronized(lock) {
+                    explicitlyExited = false
                     drainActiveTools().also {
                         _state.value = ControlSessionState(revision = _state.value.revision + 1)
                     }
@@ -107,7 +148,12 @@ class ControlSession
                 if (_state.value.isPaused) throw ControlPausedException()
                 activeTools[operation] = toolName
                 _state.value =
-                    _state.value.copy(activeTool = toolName, lastTool = toolName, revision = _state.value.revision + 1)
+                    _state.value.copy(
+                        activeTool = toolName,
+                        lastTool = toolName,
+                        isEngaged = true,
+                        revision = _state.value.revision + 1,
+                    )
             }
         }
 

@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="control_cursor_approach">移向目标</string>
+    <string name="control_cursor_clicked">已点击</string>
+    <string name="control_cursor_pressed">已长按</string>
+    <string name="control_cursor_swiped">已滑动</string>
+    <string name="control_cursor_scrolled">已滚动</string>
+    <string name="control_cursor_typed">已输入</string>
     <string name="control_cursor_click">正在点击</string>
     <string name="control_cursor_long_press">正在长按</string>
     <string name="control_cursor_swipe">正在滑动</string>

@@ -1,6 +1,15 @@
 package com.danielealbano.androidremotecontrolmcp.services.control
 
-/** Only real dispatched gestures or successful node actions instantiate this feedback. */
+internal enum class ControlCursorPhase { APPROACH, EXECUTING, COMPLETED }
+
+internal data class ControlCursorVisual(
+    val action: ControlCursorAction,
+    val phase: ControlCursorPhase,
+    val alpha: Float = 1f,
+    val clickEffect: ControlCursorClickEffect? = null,
+)
+
+/** Action verbs are selected before approach and confirmed only by actual callbacks. */
 internal enum class ControlCursorAction {
     CLICK,
     LONG_PRESS,

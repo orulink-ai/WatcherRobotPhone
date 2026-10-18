@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 from contextlib import aclosing
+import copy
 import json
 import os
 from pathlib import Path
@@ -176,8 +177,17 @@ async def serve(
     client_factory=DecisionClient,
     key_reader=load_openrouter_key,
     base=None,
+    setup_failure_metadata=None,
 ):
-    """Run the actual protocol; injectable dependencies keep tests device-free."""
+    """Run the protocol; optional public setup metadata covers custom factories.
+
+    Existing benchmark behavior is unchanged unless setup_failure_metadata is
+    supplied. A mapping or zero-argument callback may supply trusted public task
+    and routing statistics; failure status/diagnostics always remain authoritative.
+    """
+    if (setup_failure_metadata is not None and not isinstance(setup_failure_metadata, dict)
+            and not callable(setup_failure_metadata)):
+        raise ValueError("Setup failure metadata must be a mapping or callback")
     serve_started = time.perf_counter()
     terminal_task = None
     if provider == "terminal-auto" or os.environ.get("PHONE_TERMINAL_TASK"):
@@ -274,6 +284,8 @@ async def serve(
     else:
         policy = DecisionPolicy(client, provider, **policy_options)
     runtime, error_details = None, None
+    setup_error_details, setup_failure_code = None, None
+    setup_failure_enabled = terminal_task is not None or setup_failure_metadata is not None
     early_failure_written = False
     finished = failed = False
     approved_choice = approved_observation = None
@@ -281,23 +293,47 @@ async def serve(
     def finish(pi_elapsed_ms=None, *, disconnected=False):
         nonlocal early_failure_written
         if runtime is None:
-            if terminal_task is not None and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", trial_id):
+            if setup_failure_enabled and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", trial_id):
+                public_metadata = {}
+                if setup_failure_metadata is not None:
+                    try:
+                        supplied = (setup_failure_metadata() if callable(setup_failure_metadata)
+                                    else setup_failure_metadata)
+                        if not isinstance(supplied, dict):
+                            raise ValueError("Invalid public setup metadata")
+                        public_metadata = copy.deepcopy(supplied)
+                    except Exception:
+                        public_metadata = {"setupMetadataUnavailable": True}
+                if terminal_task is not None:
+                    public_metadata.setdefault("terminalTask", terminal_task)
+                    public_metadata.setdefault("terminalSummary", {"kind": terminal_task["kind"], "backend": provider})
+                if setup_failure_metadata is not None:
+                    public_metadata.update(
+                        setupFailed=setup_failure_code is not None,
+                        stopCode=setup_failure_code or "BEFORE_OBSERVATION_FAILED",
+                        noInteractionsDispatched=True,
+                    )
                 result = {
+                    **public_metadata,
                     "trialId": trial_id, "status": "failed", "provider": provider,
                     "elapsedMs": (time.perf_counter() - serve_started) * 1000,
                     "piElapsedMs": pi_elapsed_ms, "piAgentLoop": True,
                     "modelCalls": [], "operations": [], "phases": [], "milestones": [],
                     "finalState": None, "error": "手机 MCP 初始化或任务准备失败；未开始手机操作。",
-                    "errorDetails": error_details, "decisionPolicy": policy.summary(),
-                    "terminalTask": terminal_task,
-                    "terminalSummary": {"kind": terminal_task["kind"], "backend": provider},
+                    "errorDetails": setup_error_details or error_details, "decisionPolicy": policy.summary(),
                 }
                 directory = base / trial_id
                 directory.mkdir(parents=True, exist_ok=True, mode=0o700)
                 path = directory / "result.json"
                 if early_failure_written or not path.exists():
-                    private_write(path, json.dumps(result, ensure_ascii=False, indent=2))
-                    early_failure_written = True
+                    try:
+                        private_write(path, json.dumps(result, ensure_ascii=False, indent=2))
+                        early_failure_written = True
+                    except OSError:
+                        if setup_failure_metadata is None:
+                            raise
+                        # Storage failure cannot expose raw errors or prevent a
+                        # known no-action setup failure from reaching the caller.
                 return result
             raise RuntimeError("No phone observation to finalize")
         if disconnected:
@@ -340,7 +376,16 @@ async def serve(
                     if command == "observe":
                         approved_choice = approved_observation = None
                         if runtime is None:
-                            runtime = runtime_factory(trial_id)
+                            try:
+                                runtime = runtime_factory(trial_id)
+                            except Exception as setup_error:
+                                if setup_failure_metadata is not None:
+                                    _, setup_error_details = safe_error(setup_error, "observe")
+                                    setup_failure_code = (
+                                        "MCP_SETUP_FAILED" if isinstance(setup_error, McpError)
+                                        else "RUNTIME_SETUP_FAILED"
+                                    )
+                                raise
                         value = runtime.observe()
                         remember_original(value, base)
                     elif command == "decide":
@@ -414,7 +459,7 @@ async def serve(
                     message, error_details = safe_error(error, command)
                     if runtime is not None:
                         runtime.error = message
-                    elif terminal_task is not None:
+                    elif setup_failure_enabled:
                         # Initialization failures must survive an immediate PI
                         # disconnect, rather than depending on a later finish.
                         finish()
@@ -428,7 +473,7 @@ async def serve(
                     break
     finally:
         try:
-            if (runtime is not None or (terminal_task is not None and failed)) and not finished:
+            if (runtime is not None or (setup_failure_enabled and failed)) and not finished:
                 finish(disconnected=True)
         finally:
             await client.close()

@@ -9,13 +9,13 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.text.TextUtils
 import android.util.TypedValue
-import com.danielealbano.androidremotecontrolmcp.R
 
 /** Independently drawn reference-style pointer and compact action label; no touch surface. */
 internal class ControlCursorPainter(
     private val context: Context,
 ) {
     private val density = context.resources.displayMetrics.density
+    private val labels = ControlCursorLabels(context)
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint =
         android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -48,12 +48,12 @@ internal class ControlCursorPainter(
         canvas: Canvas,
         point: CursorPoint,
         viewport: CursorSize,
-        action: ControlCursorAction,
-        alpha: Float,
+        visual: ControlCursorVisual,
         showLabel: Boolean,
     ) {
-        if (showLabel) drawLabel(canvas, point, viewport, action, alpha)
-        drawArrow(canvas, point, viewport, alpha)
+        if (showLabel) drawLabel(canvas, point, viewport, visual)
+        visual.clickEffect?.let { drawClickRing(canvas, point, visual.alpha, it) }
+        drawArrow(canvas, point, viewport, visual.alpha, visual.clickEffect?.scale ?: 1f)
     }
 
     private fun drawArrow(
@@ -61,13 +61,14 @@ internal class ControlCursorPainter(
         point: CursorPoint,
         viewport: CursorSize,
         alpha: Float,
+        pressScale: Float,
     ) {
         val save = canvas.save()
         canvas.translate(point.x, point.y)
         // Keep the tip at the dispatched coordinate while turning the body inward at edges.
         val scaleX = if (point.x + POINTER_WIDTH_DP * density > viewport.width) -density else density
         val scaleY = if (point.y + POINTER_HEIGHT_DP * density > viewport.height) -density else density
-        canvas.scale(scaleX, scaleY)
+        canvas.scale(scaleX * pressScale, scaleY * pressScale)
         paint.shader = null
         paint.strokeJoin = Paint.Join.ROUND
         paint.style = Paint.Style.STROKE
@@ -82,14 +83,28 @@ internal class ControlCursorPainter(
         canvas.restoreToCount(save)
     }
 
+    private fun drawClickRing(
+        canvas: Canvas,
+        point: CursorPoint,
+        alpha: Float,
+        effect: ControlCursorClickEffect,
+    ) {
+        paint.shader = null
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = CLICK_STROKE_DP * density
+        paint.color = CLICK_COLOR
+        paint.alpha = ((1f - effect.progress) * alpha * CLICK_ALPHA).toInt()
+        canvas.drawCircle(point.x, point.y, (CLICK_RADIUS_DP + CLICK_EXPANSION_DP * effect.progress) * density, paint)
+    }
+
     private fun drawLabel(
         canvas: Canvas,
         point: CursorPoint,
         viewport: CursorSize,
-        action: ControlCursorAction,
-        alpha: Float,
+        visual: ControlCursorVisual,
     ) {
-        val text = label(action)
+        val alpha = visual.alpha
+        val text = labels.text(visual.action, visual.phase)
         val metrics = textPaint.fontMetrics
         val labelHeight = maxOf(LABEL_HEIGHT_DP * density, metrics.descent - metrics.ascent + TEXT_PADDING_DP * density)
         val size = CursorSize(textPaint.measureText(text) + 2f * LABEL_PADDING_DP * density, labelHeight)
@@ -139,17 +154,6 @@ internal class ControlCursorPainter(
         )
     }
 
-    private fun label(action: ControlCursorAction): String =
-        context.getString(
-            when (action) {
-                ControlCursorAction.CLICK -> R.string.control_cursor_click
-                ControlCursorAction.LONG_PRESS -> R.string.control_cursor_long_press
-                ControlCursorAction.SWIPE -> R.string.control_cursor_swipe
-                ControlCursorAction.SCROLL -> R.string.control_cursor_scroll
-                ControlCursorAction.TYPE -> R.string.control_cursor_type
-            },
-        )
-
     companion object {
         private const val POINTER_WIDTH_DP = 18f
         private const val POINTER_HEIGHT_DP = 25f
@@ -170,5 +174,10 @@ internal class ControlCursorPainter(
         private const val MAX_ALPHA = 255
         private const val LABEL_ALPHA = 248
         private const val SHADOW_ALPHA = 18
+        private const val CLICK_RADIUS_DP = 10f
+        private const val CLICK_EXPANSION_DP = 22f
+        private const val CLICK_STROKE_DP = 1.4f
+        private const val CLICK_COLOR = 0xFF87C6FF.toInt()
+        private const val CLICK_ALPHA = 190
     }
 }

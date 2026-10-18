@@ -60,4 +60,25 @@ class ControlGestureFeedbackTest {
         assertTrue(feedback.finish(active, cancelled = true)!!.clearCursor)
         assertFalse(feedback.avoidsPanel)
     }
+
+    @Test
+    fun `cancelled approach clears its own cursor without dispatching`() {
+        val feedback = ControlGestureFeedback()
+        val token = feedback.prepare(false, 50L)
+        feedback.approaching(token)
+        assertTrue(feedback.finish(token, cancelled = true)!!.clearCursor)
+        assertFalse(feedback.hasGestures)
+    }
+
+    @Test
+    fun `old completion cannot confirm a newer approaching cursor`() {
+        val feedback = ControlGestureFeedback()
+        val old = feedback.prepare(false, 50L)
+        feedback.dispatched(old, 0L)
+        val newer = feedback.prepare(false, 50L)
+        feedback.approaching(newer)
+        assertFalse(feedback.finish(old, cancelled = false)!!.completeCursor)
+        feedback.dispatched(newer, 100L)
+        assertTrue(feedback.finish(newer, cancelled = false)!!.completeCursor)
+    }
 }

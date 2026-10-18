@@ -46,8 +46,8 @@ export class WorkerBridge {
     if (this.child) return;
     const trial = this.providerEnv.PHONE_BENCH_TRIAL ?? process.env.PHONE_BENCH_TRIAL;
     if (!trial) throw new Error("PHONE_BENCH_TRIAL is required");
-    const python = process.env.PHONE_BENCH_PYTHON ?? "python3";
-    const worker = process.env.PHONE_BENCH_WORKER ?? join(directory, "worker.py");
+    const python = this.providerEnv.PHONE_BENCH_PYTHON ?? process.env.PHONE_BENCH_PYTHON ?? "python3";
+    const worker = this.providerEnv.PHONE_BENCH_WORKER ?? process.env.PHONE_BENCH_WORKER ?? join(directory, "worker.py");
     this.child = spawn(python, [worker, "--provider", this.backend, "--trial-id", trial], {
       cwd: directory, env: { ...process.env, ...this.providerEnv }, stdio: ["pipe", "pipe", "pipe"],
     });
@@ -206,18 +206,20 @@ function terminalFailure(result: any): string | undefined {
   return undefined;
 }
 
-function terminalSummary(result: any): string {
+function terminalSummary(result: any, primaryLabel = "Jev"): string {
   if (result?.status !== "success") return terminalFailure(result) ?? "手机任务未完成，已停止；请查看本次运行记录。";
   const policy = result.decisionPolicy ?? {};
   const attempts = Array.isArray(policy.attempts) ? policy.attempts : [];
-  const jev = attempts.filter((a: any) => a.backend === "jev").length;
-  const deepseek = attempts.filter((a: any) => a.backend === "deepseek").length;
+  const stats = result.comparisonStats ?? {};
+  if (typeof stats.primaryBackend === "string") primaryLabel = /startlux|local/i.test(stats.primaryBackend) ? "本地 StartLux" : "云端 Jev";
+  const jev = stats.primaryRequests ?? attempts.filter((a: any) => a.backend === "jev").length;
+  const deepseek = stats.fallbackRequests ?? attempts.filter((a: any) => a.backend === "deepseek").length;
   const steps = result.recipeExecution?.verifiedSteps;
   const experience = result.terminalTask?.kind === "experience";
   const lines = ["手机任务已完成并验证。", timingSummary(result), "控制通道：本项目 Android MCP；未使用 ADB。",
     experience
-      ? `录制经验辅助：${policy.experienceLoaded === true ? "已加载" : "未加载"}；每步实时判断；自动配方回放 0 步；Jev 请求 ${jev} 次；DeepSeek 兜底 ${deepseek} 次。`
-      : `录制 Skill 验证：${typeof steps === "number" ? `${steps} 步` : "本次未使用"}；Jev 请求 ${jev} 次；DeepSeek 兜底 ${deepseek} 次。`];
+      ? `录制经验辅助：${(stats.experienceLoaded ?? policy.experienceLoaded) === true ? "已加载" : "未加载"}；每步实时判断；自动配方回放 0 步；${primaryLabel} 请求 ${jev} 次；DeepSeek 兜底 ${deepseek} 次。`
+      : `录制 Skill 验证：${typeof steps === "number" ? `${steps} 步` : "本次未使用"}；${primaryLabel} 请求 ${jev} 次；DeepSeek 兜底 ${deepseek} 次。`];
   const observation = result.finalState ?? {};
   if (observation.locked === true) lines.push("手机当前处于锁屏状态；本次仅读取锁屏，请解锁后再操作应用。");
   if (observation.focusedPackage) lines.push(`当前应用：${observation.focusedPackage}`);
@@ -227,7 +229,10 @@ function terminalSummary(result: any): string {
   return lines.join("\n");
 }
 
-export function registerPhoneBenchmark(pi: ExtensionAPI, config: { terminalText: string; terminal?: boolean }) {
+export function registerPhoneBenchmark(pi: ExtensionAPI, config: {
+  terminalText: string; terminal?: boolean; enabled?: () => boolean;
+  normalizeInput?: boolean; providerEnv?: () => Record<string, string>; primaryLabel?: string;
+}) {
   let bridge: WorkerBridge | undefined;
   let startedAt: number | undefined;
   let bootstrapSent = false;
@@ -246,12 +251,14 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: { terminalText:
   };
 
   pi.on("agent_start", async () => {
+    if (config.enabled?.() === false) return;
     bridge?.kill(); bridge = undefined;
     startedAt = performance.now(); bootstrapSent = false; failed = false; finalized = undefined;
     currentTerminalGoal = undefined;
     pi.appendEntry("phone-benchmark-start", { trialId: process.env.PHONE_BENCH_TRIAL, execution: "pi-agent-loop" });
   });
   pi.on("agent_end", async () => {
+    if (config.enabled?.() === false) return;
     if (startedAt !== undefined) {
       const piElapsedMs = performance.now() - startedAt;
       const result = finalized ?? await bridge?.finish(piElapsedMs);
@@ -273,7 +280,7 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: { terminalText:
   });
   pi.on("session_shutdown", async () => { bridge?.kill(); });
   if (config.terminal) {
-    pi.on("input", async (event) => {
+    if (config.normalizeInput !== false) pi.on("input", async (event) => {
       // This exact command names the fixed verified recipe. Normalize before
       // PI expands the explanatory SKILL.md; never infer authorization from
       // arbitrary skill prose or silently ignore user-supplied arguments.
@@ -283,9 +290,10 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: { terminalText:
       return { action: "continue" };
     });
     pi.on("session_start", async (_event, ctx) => {
+      if (config.enabled?.() === false) return;
       const saved = ctx.sessionManager.getBranch().filter((entry: any) => entry.type === "custom" && entry.customType === "phone-terminal-result").at(-1) as any;
       if (typeof saved?.data?.goal === "string" && saved.data.result) previousTerminal = saved.data;
-      if (ctx.hasUI) ctx.ui.setStatus("phone-control", "录制经验辅助 Jev → DeepSeek · 本项目 Android MCP · 无 ADB");
+      if (ctx.hasUI) ctx.ui.setStatus("phone-control", `录制经验辅助 ${config.primaryLabel ?? "Jev"} → DeepSeek · 本项目 Android MCP · 无 ADB`);
     });
     pi.registerCommand("phone-replay", {
       description: "固定回放模式：小狮日记 → 点赞收藏 → 取消两项（非默认经验辅助）",
@@ -300,7 +308,7 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: { terminalText:
     pi.registerCommand("phone-status", {
       description: "显示手机决策路径与已配置的录制 Skill",
       handler: async (_args, ctx) => {
-        ctx.ui.notify(`手机决策：Jev 每步实时判断，录制经验仅提供建议；请求失败重读后 DeepSeek。\n执行通道：本项目 Android MCP；无 ADB。\n经验来源：${process.env.PHONE_BENCH_RECIPE || "未配置，使用普通 Jev"}\n支持：小红书换搜索词、首篇或指定标题、按要求点赞/收藏/取消；/phone-replay 单独保留固定回放。`, "info");
+        ctx.ui.notify(`手机决策：${config.primaryLabel ?? "Jev"} 每步实时判断，录制经验仅提供建议；请求失败重读后 DeepSeek。\n执行通道：本项目 Android MCP；无 ADB。\n经验来源：${config.providerEnv?.().PHONE_BENCH_RECIPE || process.env.PHONE_BENCH_RECIPE || "未配置"}\n支持：小红书换搜索词、首篇或指定标题、按要求点赞/收藏/取消；/phone-replay 单独保留固定回放。`, "info");
       },
     });
   }
@@ -310,6 +318,7 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: { terminalText:
     description: "Read current phone state and the controller's exact allowed next actions.",
     parameters: Type.Object({}, { additionalProperties: false }), executionMode: "sequential",
     async execute(_id, _params, signal) {
+      if (config.enabled?.() === false) throw new Error("No current phone request is active");
       const result = observation(await worker().request("observe", {}, signal));
       return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
     },
@@ -320,6 +329,7 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: { terminalText:
     parameters: Type.Object({ choice: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
     executionMode: "sequential",
     async execute(_id, params, signal) {
+      if (config.enabled?.() === false) throw new Error("No current phone request is active");
       const result = observation(await worker().request("act", { choice: params.choice }, signal));
       return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
     },
@@ -329,7 +339,7 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: { terminalText:
     name: config.terminal ? "Phone control · Skill / Jev / DeepSeek" : "Phone benchmark (local worker)",
     baseUrl: "stdio://phone-benchmark", apiKey: "local-worker-no-api-key", api: API,
     models: (config.terminal ? ["auto"] : ["jev", "deepseek", "jev-auto", "skill", "skill-auto"]).map((id) => ({
-      id, name: id === "auto" ? "Jev + 录制 Skill → DeepSeek" : id === "skill-auto" ? "Recorded skill → Jev → DeepSeek" : id === "skill" ? "Recorded phone skill with verified steps" : id === "jev-auto" ? "Jev 优先，DeepSeek 兜底" : id === "jev" ? "Jev 1.14 phone decisions" : "DeepSeek V4.1 Flash phone decisions",
+      id, name: id === "auto" ? `${config.primaryLabel ?? "Jev"} + 录制 Skill → DeepSeek` : id === "skill-auto" ? "Recorded skill → Jev → DeepSeek" : id === "skill" ? "Recorded phone skill with verified steps" : id === "jev-auto" ? "Jev 优先，DeepSeek 兜底" : id === "jev" ? "Jev 1.14 phone decisions" : "DeepSeek V4.1 Flash phone decisions",
       reasoning: false, input: ["text"], contextWindow: 1_000_000, maxTokens: 256,
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     })),
@@ -350,6 +360,7 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: { terminalText:
           stream.push({ type: "done", reason: "stop", message: output });
         };
         try {
+          if (config.enabled?.() === false) throw new Error("No current phone request is active");
           if (failed) throw new Error("Phone trial already failed");
           if (options?.signal?.aborted) throw new Error("Aborted");
           if (config.terminal ? model.id !== "auto" : !["jev", "deepseek", "jev-auto", "skill", "skill-auto"].includes(model.id)) throw new Error("Unsupported phone model");
@@ -366,9 +377,10 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: { terminalText:
           }
           const environment = config.terminal ? {
             ...options?.env,
+            ...config.providerEnv?.(),
             PHONE_TERMINAL_GOAL: currentTerminalGoal!,
             PHONE_BENCH_TRIAL: `terminal-${randomUUID()}`,
-          } : options?.env;
+          } : { ...options?.env, ...config.providerEnv?.() };
           const child = worker(backend, environment);
           if (config.terminal && !bootstrapSent) pi.appendEntry("phone-terminal-route", { goal: currentTerminalGoal, provider: providerId, transport: "own-android-mcp", adb: false });
           const abort = () => child.kill();
@@ -427,7 +439,7 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: { terminalText:
             stream.push({ type: "start", partial: output });
             if (done) {
               if (config.terminal) finalized = await child.finish(performance.now() - (startedAt ?? performance.now()));
-              const completedText = config.terminal ? terminalSummary(finalized) : config.terminalText;
+              const completedText = config.terminal ? terminalSummary(finalized, config.primaryLabel) : config.terminalText;
               completeText(completedText);
             } else {
               const toolCall = { type: "toolCall" as const, id: randomUUID(), name, arguments: args };

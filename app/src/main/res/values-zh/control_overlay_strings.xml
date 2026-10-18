@@ -20,7 +20,7 @@
     <string name="control_overlay_tapping">正在操作屏幕</string>
     <string name="control_overlay_typing">正在输入文字</string>
     <string name="control_overlay_opening">正在打开应用</string>
-    <string name="control_overlay_connected">远程控制已连接</string>
+    <string name="control_overlay_connected">AI 控制已开启</string>
     <string name="control_overlay_expand">Orulink：%1$s。点按展开控制，拖动可移动。</string>
     <string name="control_overlay_collapse">收起控制面板</string>
     <string name="control_overlay_compact_ready">待命</string>

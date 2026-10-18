@@ -29,7 +29,6 @@ internal class ControlOverlayController(
 ) {
     private val windows = ControlOverlayWindows(context, scope, ::takeOver, ::togglePause, ::stop)
     private var enabled = true
-    private var captureDepth = 0
     private val gestures = ControlGestureFeedback()
     private val gestureWatchdog = ControlGestureWatchdog(scope, SystemClock::uptimeMillis, ::expireGesture)
     private var stopping = false
@@ -55,6 +54,7 @@ internal class ControlOverlayController(
     }
 
     suspend fun prepareGesture(gesture: GestureDescription): Long {
+        refresh()
         val avoidsPanel = windows.attached && windows.intersectsPanel(gesture)
         val duration =
             (0 until gesture.strokeCount).maxOfOrNull { index ->
@@ -62,8 +62,14 @@ internal class ControlOverlayController(
             } ?: 0L
         val token = gestures.prepare(avoidsPanel, duration)
         try {
-            windows.updateVisibility(captureDepth > 0, session.state.value.isPaused, gestures.avoidsPanel)
-            if (avoidsPanel) delay(CAPTURE_SETTLE_MS)
+            windows.updateInteraction(gestures.avoidsPanel)
+            val state = session.state.value
+            if (windows.attached && !state.isPaused) {
+                gestures.approaching(token)
+                windows.effects.updateAction(state.activeTool ?: state.lastTool)
+                val approach = windows.effects.prepareGesture(gesture)
+                delay(maxOf(approach, if (avoidsPanel) INPUT_SETTLE_MS else 0L))
+            }
         } catch (
             @Suppress("TooGenericExceptionCaught") error: Exception,
         ) {
@@ -72,6 +78,38 @@ internal class ControlOverlayController(
         }
         return token
     }
+
+    suspend fun prepareTarget(bounds: Rect): Long {
+        refresh()
+        val token = gestures.prepare(avoidsPanel = false, duration = 0L)
+        try {
+            if (windows.attached && !session.state.value.isPaused) {
+                gestures.approaching(token)
+                val state = session.state.value
+                windows.effects.updateAction(state.activeTool ?: state.lastTool)
+                delay(windows.effects.prepareTarget(bounds))
+            }
+        } catch (
+            @Suppress("TooGenericExceptionCaught") error: Exception,
+        ) {
+            finishGesture(token, cancelled = true)
+            throw error
+        }
+        return token
+    }
+
+    fun finishTarget(
+        token: Long,
+        bounds: Rect,
+        successful: Boolean,
+    ) {
+        val result = gestures.finish(token, cancelled = !successful) ?: return
+        if (result.completeCursor) windows.effects.showTarget(bounds)
+        if (result.clearCursor) windows.effects.clearFeedback()
+        refresh()
+    }
+
+    fun snapshotPanelBounds(): Rect? = windows.panelBounds()
 
     fun finishGesture(
         token: Long,
@@ -92,6 +130,7 @@ internal class ControlOverlayController(
         if (result == null) return
         gestureWatchdog.cancel(token)
         if (result.clearCursor) windows.effects.clearFeedback()
+        if (result.completeCursor) windows.effects.completeGesture()
         if (stopping && !gestures.hasGestures) completeStop() else refresh()
     }
 
@@ -117,19 +156,6 @@ internal class ControlOverlayController(
         }
     }
 
-    suspend fun <T> withoutVisuals(block: suspend () -> T): T {
-        captureDepth++
-        windows.updateVisibility(captureDepth > 0, session.state.value.isPaused, gestures.avoidsPanel)
-        return try {
-            // Let SurfaceFlinger consume the hidden frame before starting the capture.
-            delay(CAPTURE_SETTLE_MS)
-            block()
-        } finally {
-            captureDepth--
-            windows.updateVisibility(captureDepth > 0, session.state.value.isPaused, gestures.avoidsPanel)
-        }
-    }
-
     fun destroy() {
         observer.cancel()
         effectsConfigObserver.cancel()
@@ -139,20 +165,23 @@ internal class ControlOverlayController(
     }
 
     fun refresh(state: ControlSessionState = session.state.value) {
-        if (state.lastTool == null && !state.isPaused) {
+        if (state.isEngaged && !state.isPaused) {
             stopping = false
             stopped = false
         }
-        if (!enabled || stopped || state.lastTool == null) {
-            windows.detach()
+        if (stopped) return
+        if (!enabled || !state.isEngaged) {
+            windows.effects.clearFeedback()
+            if (windows.attached) windows.setModeVisible(false, onHidden = windows::detach)
             return
         }
-        windows.attach()
+        windows.attach(initiallyVisible = false)
+        windows.setModeVisible(!state.isPaused, keepControls = true)
         windows.renderPanel(state, gestures.hasGestures, stopping)
         windows.effects.isActive = state.isActive
         if (state.isPaused) windows.effects.clearFeedback()
         windows.effects.updateAction(if (state.isPaused) null else state.activeTool ?: state.lastTool)
-        windows.updateVisibility(captureDepth > 0, session.state.value.isPaused, gestures.avoidsPanel)
+        windows.updateInteraction(gestures.avoidsPanel)
     }
 
     private fun takeOver() {
@@ -160,7 +189,7 @@ internal class ControlOverlayController(
     }
 
     private fun togglePause() {
-        if (stopping) return
+        if (stopping || !session.state.value.isEngaged) return
         if (session.state.value.isPaused) {
             if (!gestures.hasGestures) session.resume()
         } else {
@@ -177,7 +206,13 @@ internal class ControlOverlayController(
 
     private fun completeStop() {
         stopped = true
-        windows.detach()
+        windows.setModeVisible(false, onHidden = {
+            windows.detach()
+            stopServer()
+        })
+    }
+
+    private fun stopServer() {
         runCatching { onStop() }.onFailure {
             Log.w(TAG, "Could not stop remote control", it)
             stopping = false
@@ -190,7 +225,7 @@ internal class ControlOverlayController(
         const val EFFECTS_WINDOW_TITLE = "Orulink control effects"
         const val PANEL_WINDOW_TITLE = "Orulink control panel"
         private const val TAG = "MCP:ControlOverlay"
-        private const val CAPTURE_SETTLE_MS = 40L
+        private const val INPUT_SETTLE_MS = 40L
         private const val SETTINGS_RETRY_MS = 1_000L
 
         fun isControlWindow(title: CharSequence?): Boolean =

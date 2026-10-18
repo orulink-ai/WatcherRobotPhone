@@ -19,11 +19,14 @@ import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
+import com.danielealbano.androidremotecontrolmcp.data.model.ScreenshotBounds
+import com.danielealbano.androidremotecontrolmcp.data.model.ScreenshotCaptureMetadata
 import com.danielealbano.androidremotecontrolmcp.data.repository.SettingsRepository
 import com.danielealbano.androidremotecontrolmcp.services.control.ControlOverlayController
 import com.danielealbano.androidremotecontrolmcp.services.control.ControlSession
 import com.danielealbano.androidremotecontrolmcp.services.mcp.McpServerService
 import com.danielealbano.androidremotecontrolmcp.services.recording.WorkflowRecorder
+import com.danielealbano.androidremotecontrolmcp.services.screencapture.CapturedScreenshot
 import com.danielealbano.androidremotecontrolmcp.services.screencapture.ScreenshotRequestGate
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -310,6 +313,27 @@ class McpAccessibilityService : AccessibilityService() {
         updateControlOverlay { it.finishGesture(token, cancelled) }
     }
 
+    suspend fun prepareTargetFeedback(bounds: Rect): Long =
+        try {
+            controlOverlay?.prepareTarget(Rect(bounds)) ?: 0L
+        } catch (error: CancellationException) {
+            throw error
+        } catch (
+            @Suppress("TooGenericExceptionCaught") error: Exception,
+        ) {
+            Log.w(TAG, "Could not prepare node feedback", error)
+            0L
+        }
+
+    fun finishTargetFeedback(
+        token: Long,
+        bounds: Rect,
+        successful: Boolean,
+    ) {
+        val copy = Rect(bounds)
+        updateControlOverlay { it.finishTarget(token, copy, successful) }
+    }
+
     fun showGestureFeedback(
         token: Long,
         gesture: GestureDescription,
@@ -379,17 +403,23 @@ class McpAccessibilityService : AccessibilityService() {
      * @param timeoutMs Maximum time to wait for screenshot capture.
      * @return Bitmap of the screenshot, or null if capture failed or timed out.
      */
-    suspend fun takeScreenshotBitmap(timeoutMs: Long = SCREENSHOT_TIMEOUT_MS): Bitmap? =
+    suspend fun takeScreenshotBitmap(timeoutMs: Long = SCREENSHOT_TIMEOUT_MS): Bitmap? = takeScreenshotFrame(timeoutMs)?.bitmap
+
+    /** Keeps the local control UI visible and binds its sampled bounds to this exact capture request. */
+    suspend fun takeScreenshotFrame(timeoutMs: Long = SCREENSHOT_TIMEOUT_MS): CapturedScreenshot? =
         // Bound the entire request, including dispatcher/queue/interval/overlay waits.
         withTimeoutOrNull(timeoutMs) {
             withContext(Dispatchers.Main) {
                 screenshotRequestGate.capture {
-                    val overlay = controlOverlay
-                    if (overlay == null) {
-                        captureScreenshotBitmap()
-                    } else {
-                        overlay.withoutVisuals { captureScreenshotBitmap() }
-                    }
+                    val boundsBefore = controlOverlay?.snapshotPanelBounds()
+                    val bitmap = captureScreenshotBitmap() ?: return@capture null
+                    val boundsAfter = controlOverlay?.snapshotPanelBounds()
+                    val panelBounds =
+                        ScreenshotBounds.enclosing(
+                            boundsBefore?.let { ScreenshotBounds(it.left, it.top, it.right, it.bottom) },
+                            boundsAfter?.let { ScreenshotBounds(it.left, it.top, it.right, it.bottom) },
+                        )
+                    CapturedScreenshot(bitmap, ScreenshotCaptureMetadata(bitmap.width, bitmap.height, panelBounds))
                 }
             }
         }

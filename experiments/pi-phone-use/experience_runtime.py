@@ -143,7 +143,9 @@ def _public_label(label):
     return (
         label is not None
         and not re.fullmatch(
-            r"[\d\s.,:万亿千百/\-]+|(?:今天|昨天|前天)(?:\s.*)?|(?:点赞|收藏|已点赞|已收藏)\d*",
+            r"[\d\s.,:万亿千百/\-]+|(?:今天|昨天|前天)(?:\s.*)?"
+            r"|(?:\d+(?:\.\d+)?|半)\s*(?:秒钟?|分钟?|小时|天|周|星期|个?月|年)\s*前"
+            r"|刚刚|刚才|(?:点赞|收藏|已点赞|已收藏)\d*",
             label,
         )
         and label not in {"关注", "已关注", "搜索", "综合", "全部", "用户", "返回", "首页"}
@@ -598,11 +600,23 @@ class ExperienceRuntime(PhoneRuntime):
             self.bound_target["photoIdentity"] = identity
         like_evidence = icon_state(image, like["bounds"], "like", size)
         collect_evidence = icon_state(image, favorite["bounds"], "collect", size)
+        # A floating overlay can hide the colored icon while AX still explicitly
+        # reports an active collection. Missing color cannot prove cancellation
+        # against that positive semantic evidence. Keep both readings for audit;
+        # an ordinary "收藏" label alone does not prove an inactive state.
+        ax_collect_active = re.fullmatch(
+            r"已收藏(?:\s*[\d.万千亿,]+)?", favorite["label"].strip()
+        ) is not None
+        collect_evidence.update(
+            axSemanticActive=ax_collect_active,
+            screenshotConflict=ax_collect_active and not collect_evidence["active"],
+            effectiveActive=ax_collect_active or collect_evidence["active"],
+        )
         observed.update(
             kind="detail",
             targetVerified=True,
             liked=like_evidence["active"],
-            collected=collect_evidence["active"],
+            collected=collect_evidence["effectiveActive"],
         )
         observed["evidence"] = {
             "liked": like_evidence,

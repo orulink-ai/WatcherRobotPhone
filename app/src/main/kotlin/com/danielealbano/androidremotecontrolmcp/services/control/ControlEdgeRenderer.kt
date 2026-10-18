@@ -19,6 +19,7 @@ internal class ControlEdgeRenderer(
     private var config = ControlEffectsConfig()
     private var width = 0f
     private var height = 0f
+    private var reveal = 1f
     private var shaders: List<ControlEdgeShaders> = emptyList()
 
     fun updateConfig(value: ControlEffectsConfig) {
@@ -50,8 +51,10 @@ internal class ControlEdgeRenderer(
         now: Long,
         active: Boolean,
         animate: Boolean,
+        visibility: Float = 1f,
     ) {
-        if (shaders.isEmpty()) return
+        reveal = if (visibility.isFinite()) visibility.coerceIn(0f, 1f) else 0f
+        if (shaders.isEmpty() || reveal <= 0f) return
         val save = canvas.save()
         canvas.clipPath(clip)
         paint.style = Paint.Style.FILL
@@ -79,7 +82,7 @@ internal class ControlEdgeRenderer(
         min(
             config.glowWidthDp * density * light.widthScale * if (focus) FOCUS_DEPTH_SCALE else 1f,
             min(width, height) * MAX_INWARD_FRACTION,
-        )
+        ) * reveal
 
     private fun drawBase(
         canvas: Canvas,
@@ -90,7 +93,7 @@ internal class ControlEdgeRenderer(
         val depth = depth(light)
         fields.placeBase(depth)
         paint.shader = fields.base
-        paint.alpha = (light.opacity * config.intensity * BASE_ALPHA).toInt().coerceIn(0, MAX_ALPHA)
+        paint.alpha = (light.opacity * config.intensity * BASE_ALPHA * reveal).toInt().coerceIn(0, MAX_ALPHA)
         when (side) {
             ControlEdgeSide.LEFT -> canvas.drawRect(0f, 0f, depth, height, paint)
             ControlEdgeSide.RIGHT -> canvas.drawRect(width - depth, 0f, width, height, paint)
@@ -124,7 +127,7 @@ internal class ControlEdgeRenderer(
         val radiusY = if (vertical) reach else depth
         fields.placeFocus(x, y, radiusX, radiusY)
         paint.shader = fields.highlight
-        paint.alpha = (light.opacity * config.intensity * MAX_ALPHA).toInt().coerceIn(0, MAX_ALPHA)
+        paint.alpha = (light.opacity * config.intensity * MAX_ALPHA * reveal).toInt().coerceIn(0, MAX_ALPHA)
         canvas.drawRect(
             (x - radiusX).coerceAtLeast(0f),
             (y - radiusY).coerceAtLeast(0f),
