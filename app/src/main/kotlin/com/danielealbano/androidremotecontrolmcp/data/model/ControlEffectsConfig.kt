@@ -61,16 +61,14 @@ data class ControlEffectsConfig(
 
         /** Each field recovers independently so a future enum or damaged value retains other choices. */
         fun fromJsonOrDefault(json: String?): ControlEffectsConfig {
-            if (json.isNullOrBlank()) return ControlEffectsConfig()
-            val fields =
-                try {
-                    Json.parseToJsonElement(json) as? JsonObject
-                } catch (_: SerializationException) {
-                    null
-                } ?: return ControlEffectsConfig()
-            val mode = fields.primitive("colorMode")?.contentOrNull
+            val fields = parseFields(json) ?: return ControlEffectsConfig()
+            val modeName = fields.primitive("colorMode")?.contentOrNull
+            val mode =
+                ControlEdgeColorMode.entries
+                    .firstOrNull { it.name == modeName }
+                    ?: ControlEdgeColorMode.MULTICOLOR
             return ControlEffectsConfig(
-                colorMode = ControlEdgeColorMode.entries.firstOrNull { it.name == mode } ?: ControlEdgeColorMode.MULTICOLOR,
+                colorMode = mode,
                 customColorArgb = fields.primitive("customColorArgb")?.intOrNull ?: DEFAULT_CUSTOM_COLOR_ARGB,
                 glowWidthDp = fields.primitive("glowWidthDp")?.floatOrNull ?: DEFAULT_GLOW_WIDTH_DP,
                 intensity = fields.primitive("intensity")?.floatOrNull ?: DEFAULT_INTENSITY,
@@ -78,6 +76,17 @@ data class ControlEffectsConfig(
                 speed = fields.primitive("speed")?.floatOrNull ?: DEFAULT_SPEED,
             ).normalized()
         }
+
+        private fun parseFields(json: String?): JsonObject? =
+            if (json.isNullOrBlank()) {
+                null
+            } else {
+                try {
+                    Json.parseToJsonElement(json) as? JsonObject
+                } catch (_: SerializationException) {
+                    null
+                }
+            }
 
         private fun JsonObject.primitive(key: String): JsonPrimitive? = this[key] as? JsonPrimitive
 
