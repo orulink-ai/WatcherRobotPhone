@@ -41,7 +41,12 @@ class LocalRecipeClient:
 def safe_error(error, command):
     """No response bodies or arbitrary exception messages cross the IPC boundary."""
     from terminal_runtime import TerminalRuntimeError
+    from experience_runtime import ExperienceRuntimeError
 
+    if isinstance(error, ExperienceRuntimeError):
+        return ExperienceRuntimeError.MESSAGES[error.code], {
+            "exceptionType": "ExperienceRuntimeError", "stage": "experience_observation", "code": error.code,
+        }
     if isinstance(error, TerminalRuntimeError):
         return TerminalRuntimeError.MESSAGES[error.code], {
             "exceptionType": "TerminalRuntimeError", "stage": "terminal_observation", "code": error.code,
@@ -139,10 +144,13 @@ async def serve(
             terminal_task = parse_terminal_task(resolve_task(
                 os.environ.get("PHONE_TERMINAL_GOAL"), os.environ.get("PHONE_BENCH_RECIPE"),
             ))
-        provider = "skill-auto" if terminal_task["kind"] == "recorded" else "jev-auto"
-    if provider not in {"jev", "deepseek", "jev-auto", "skill", "skill-auto"}:
+        provider = (
+            "experience-auto" if terminal_task["kind"] == "experience"
+            else "skill-auto" if terminal_task["kind"] == "recorded" else "jev-auto"
+        )
+    if provider not in {"jev", "deepseek", "jev-auto", "skill", "skill-auto", "experience-auto"}:
         raise ValueError("Unsupported phone decision mode")
-    budgets = decision_timeouts() if provider in {"jev-auto", "skill-auto"} else (5.0, 15.0)
+    budgets = decision_timeouts() if provider in {"jev-auto", "skill-auto", "experience-auto"} else (5.0, 15.0)
     recipe = None
     if provider in {"skill", "skill-auto"}:
         from workflow import SkillPolicy, load_recipe
@@ -151,11 +159,20 @@ async def serve(
         if not recipe_path.strip():
             raise ValueError("PHONE_BENCH_RECIPE is required for skill mode")
         recipe = load_recipe(Path(recipe_path).expanduser())
+        if terminal_task is not None:
+            from terminal_tasks import QUERY, TITLE
+
+            if recipe["task"] != {"query": QUERY, "expectedFirstTitle": TITLE}:
+                raise ValueError("Legacy replay requires its exact demonstrated task")
     if runtime_factory is None:
         if terminal_task is not None:
             from terminal_runtime import GenericTerminalRuntime, TerminalRecordedRuntime
 
             def terminal_factory(trial):
+                if terminal_task["kind"] == "experience":
+                    from experience_runtime import ExperienceRuntime
+
+                    return ExperienceRuntime(trial, terminal_task, base=base)
                 if terminal_task["kind"] == "recorded":
                     if recipe is not None and recipe.get("entryStrategy") is not None:
                         return TerminalRecordedRuntime(trial, terminal_task, entry_strategy=recipe["entryStrategy"])
@@ -180,7 +197,7 @@ async def serve(
         client_options["providerFallbacks"] = True
     if provider == "skill":
         client = LocalRecipeClient()
-    elif provider == "skill-auto" or terminal_task is not None:
+    elif provider in {"skill-auto", "experience-auto"} or terminal_task is not None:
         from skill_auto import LazyDecisionClient
         client = LazyDecisionClient(client_factory, key_reader, **client_options)
     else:
@@ -191,6 +208,13 @@ async def serve(
     elif provider == "skill-auto":
         from skill_auto import SkillAutoPolicy
         policy = SkillAutoPolicy(client, provider, recipe=recipe, **policy_options)
+    elif provider == "experience-auto":
+        from experience_policy import ExperiencePolicy
+
+        source = os.environ.get("PHONE_BENCH_RECIPE") or None
+        if os.environ.get("PHONE_EXPERIENCE_ENABLED", "1") == "0":
+            source = None
+        policy = ExperiencePolicy(client, "jev-auto", skill_path=source, **policy_options)
     else:
         policy = DecisionPolicy(client, provider, **policy_options)
     runtime, error_details = None, None
