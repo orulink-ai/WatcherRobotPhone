@@ -12,6 +12,7 @@ import androidx.navigation.compose.rememberNavController
 import com.danielealbano.androidremotecontrolmcp.ui.navigation.SettingsRoute
 import com.danielealbano.androidremotecontrolmcp.ui.screens.settings.AccessSettingsScreen
 import com.danielealbano.androidremotecontrolmcp.ui.screens.settings.ChannelSettingsScreen
+import com.danielealbano.androidremotecontrolmcp.ui.screens.settings.ControlEffectsSettingsScreen
 import com.danielealbano.androidremotecontrolmcp.ui.screens.settings.GeneralSettingsScreen
 import com.danielealbano.androidremotecontrolmcp.ui.screens.settings.McpToolsSettingsScreen
 import com.danielealbano.androidremotecontrolmcp.ui.screens.settings.NotificationFilterScreen
@@ -75,6 +76,9 @@ fun SettingsScreen(
         }
         composable(SettingsRoute.Privacy.route) {
             PrivacySettingsScreen(onBack = { navController.popBackStack() })
+        }
+        composable(SettingsRoute.ControlEffects.route) {
+            ControlEffectsSettingsScreen(onBack = { navController.popBackStack() })
         }
         composable(SettingsRoute.Tunnel.route) {
             TunnelSettingsScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)

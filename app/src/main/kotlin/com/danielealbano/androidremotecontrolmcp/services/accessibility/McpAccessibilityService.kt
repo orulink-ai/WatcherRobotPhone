@@ -19,6 +19,7 @@ import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
+import com.danielealbano.androidremotecontrolmcp.data.repository.SettingsRepository
 import com.danielealbano.androidremotecontrolmcp.services.control.ControlOverlayController
 import com.danielealbano.androidremotecontrolmcp.services.control.ControlSession
 import com.danielealbano.androidremotecontrolmcp.services.mcp.McpServerService
@@ -51,6 +52,8 @@ class McpAccessibilityService : AccessibilityService() {
         fun controlSession(): ControlSession
 
         fun workflowRecorder(): WorkflowRecorder
+
+        fun settingsRepository(): SettingsRepository
     }
 
     private var serviceScope: CoroutineScope? = null
@@ -273,13 +276,18 @@ class McpAccessibilityService : AccessibilityService() {
 
     private fun createControlOverlay(scope: CoroutineScope): ControlOverlayController? =
         runCatching {
-            val session =
+            val entryPoint =
                 EntryPointAccessors
                     .fromApplication(applicationContext, NodeCacheEntryPoint::class.java)
-                    .controlSession()
-            ControlOverlayController(this, session, scope) {
-                startService(Intent(this, McpServerService::class.java).setAction(McpServerService.ACTION_STOP))
-            }
+            ControlOverlayController(
+                context = this,
+                session = entryPoint.controlSession(),
+                scope = scope,
+                onStop = {
+                    startService(Intent(this, McpServerService::class.java).setAction(McpServerService.ACTION_STOP))
+                },
+                effectsConfig = entryPoint.settingsRepository().controlEffectsConfig,
+            )
         }.onFailure { Log.w(TAG, "Could not initialize control overlay", it) }.getOrNull()
 
     /** Called on Main immediately before dispatching a gesture. */
@@ -295,12 +303,18 @@ class McpAccessibilityService : AccessibilityService() {
             0L
         }
 
-    fun finishGestureFeedback(token: Long) {
-        updateControlOverlay { it.finishGesture(token) }
+    fun finishGestureFeedback(
+        token: Long,
+        cancelled: Boolean = false,
+    ) {
+        updateControlOverlay { it.finishGesture(token, cancelled) }
     }
 
-    fun showGestureFeedback(gesture: GestureDescription) {
-        updateControlOverlay { it.showGesture(gesture) }
+    fun showGestureFeedback(
+        token: Long,
+        gesture: GestureDescription,
+    ) {
+        updateControlOverlay { it.showGesture(token, gesture) }
     }
 
     fun showTargetFeedback(bounds: Rect) {
@@ -369,11 +383,14 @@ class McpAccessibilityService : AccessibilityService() {
         // Bound the entire request, including dispatcher/queue/interval/overlay waits.
         withTimeoutOrNull(timeoutMs) {
             withContext(Dispatchers.Main) {
-                val capture: suspend () -> Bitmap? = {
-                    screenshotRequestGate.capture { captureScreenshotBitmap() }
+                screenshotRequestGate.capture {
+                    val overlay = controlOverlay
+                    if (overlay == null) {
+                        captureScreenshotBitmap()
+                    } else {
+                        overlay.withoutVisuals { captureScreenshotBitmap() }
+                    }
                 }
-                val overlay = controlOverlay
-                if (overlay == null) capture() else overlay.withoutVisuals(capture)
             }
         }
 

@@ -2,25 +2,77 @@ package com.danielealbano.androidremotecontrolmcp.services.control
 
 import android.accessibilityservice.GestureDescription
 import android.content.Context
-import android.graphics.PixelFormat
 import android.graphics.RectF
 import android.util.Log
 import android.view.Gravity
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.WindowInsets
 import android.view.WindowManager
+import android.view.accessibility.AccessibilityManager
+import kotlinx.coroutines.CoroutineScope
 
 /** Owns overlay attachment, layout, visibility, and hit testing. Accessed only on Main. */
 internal class ControlOverlayWindows(
-    private val context: Context,
+    context: Context,
+    scope: CoroutineScope,
     onTakeover: () -> Unit,
+    onPause: () -> Unit,
     onStop: () -> Unit,
 ) {
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     val effects = ControlEffectsView(context)
-    val panel = ControlPanelView(context).apply { setActions(onTakeover, onStop) }
+    val panel = ControlPanelView(context)
+    private val accessibilityManager = context.getSystemService(AccessibilityManager::class.java)
+    private val panelLayout = ControlPanelLayout(context, windowManager, panel)
+    private val hitSlop = (PANEL_HIT_SLOP_DP * context.resources.displayMetrics.density).toInt().toFloat()
+    private var panelParams: WindowManager.LayoutParams? = null
+    private var touching = false
+    private val expansion =
+        ControlPanelExpansion(scope, {
+            !accessibilityManager.isTouchExplorationEnabled
+        }) { expanded ->
+            panel.setExpanded(expanded)
+            bindDragHandle()
+            relayoutPanel()
+        }
+    private val drag =
+        ControlPanelDrag(
+            ViewConfiguration.get(context).scaledTouchSlop,
+            { PanelPosition(panelParams?.x ?: 0, panelParams?.y ?: 0) },
+            ::movePanel,
+            ::dockPanel,
+        )
     var attached = false
         private set
+
+    init {
+        panel.setActions(
+            { if (expansion.isExpanded) expansion.collapse() else expansion.expand() },
+            onTakeover,
+            onPause,
+            onStop,
+        )
+        bindDragHandle()
+        panel.onTouchInteraction = { pressed ->
+            touching = pressed
+            if (pressed) {
+                expansion.beginInteraction()
+            } else {
+                expansion.endInteraction()
+                relayoutPanel()
+            }
+        }
+        panel.onConfigurationUpdate = { panel.post { relayoutPanel() } }
+        panel.setOnApplyWindowInsetsListener { _, insets ->
+            panel.post { relayoutPanel() }
+            insets
+        }
+    }
+
+    private fun bindDragHandle() {
+        panel.dragHandle.setOnTouchListener(drag)
+    }
 
     fun intersectsPanel(gesture: GestureDescription): Boolean {
         if (panel.width == 0) return true
@@ -35,7 +87,6 @@ internal class ControlOverlayWindows(
             )
         return (0 until gesture.strokeCount).any { index ->
             val bounds = measureGesturePath(gesture.getStroke(index).path).bounds
-            val hitSlop = dp(PANEL_HIT_SLOP_DP).toFloat()
             bounds.inset(-hitSlop, -hitSlop)
             RectF.intersects(panelBounds, bounds)
         }
@@ -45,7 +96,10 @@ internal class ControlOverlayWindows(
         if (attached) return
         runCatching {
             windowManager.addView(effects, effectsLayout())
-            windowManager.addView(panel, panelLayout())
+            val params = panelLayout.create(expansion.isExpanded, touching, panelParams)
+            bindDragHandle()
+            panelParams = params
+            windowManager.addView(panel, params)
             attached = true
         }.onFailure {
             removeView(effects)
@@ -55,11 +109,14 @@ internal class ControlOverlayWindows(
     }
 
     fun detach() {
+        attached = false
+        touching = false
+        expansion.collapse()
         effects.clearFeedback()
         effects.isActive = false
         removeView(effects)
         removeView(panel)
-        attached = false
+        panelParams = null
     }
 
     private fun removeView(view: View) {
@@ -76,7 +133,10 @@ internal class ControlOverlayWindows(
     }
 
     private fun effectsLayout(): WindowManager.LayoutParams =
-        layout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT).apply {
+        controlOverlayLayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+        ).apply {
             flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
             gravity = Gravity.TOP or Gravity.START
@@ -85,35 +145,38 @@ internal class ControlOverlayWindows(
             title = ControlOverlayController.EFFECTS_WINDOW_TITLE
         }
 
-    private fun panelLayout(): WindowManager.LayoutParams {
-        val metrics = windowManager.currentWindowMetrics
-        val width = minOf(dp(PANEL_WIDTH_DP), metrics.bounds.width() - dp(PANEL_MARGIN_DP * 2))
-        return layout(width, WindowManager.LayoutParams.WRAP_CONTENT).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            y = dp(PANEL_MARGIN_DP)
-            setFitInsetsTypes(WindowInsets.Type.systemBars() or WindowInsets.Type.ime())
-            title = ControlOverlayController.PANEL_WINDOW_TITLE
-        }
+    fun renderPanel(
+        state: ControlSessionState,
+        waitingForGesture: Boolean,
+        stopping: Boolean,
+    ) {
+        panel.render(state, waitingForGesture, stopping)
+        relayoutPanel()
     }
 
-    private fun layout(
-        width: Int,
-        height: Int,
-    ): WindowManager.LayoutParams =
-        WindowManager.LayoutParams(
-            width,
-            height,
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-            PixelFormat.TRANSLUCENT,
-        )
+    private fun relayoutPanel() {
+        if (!attached) return
+        val params = panelLayout.create(expansion.isExpanded, touching, panelParams)
+        bindDragHandle()
+        if (panelLayout.hasSameGeometry(panelParams, params)) return
+        panelParams = params
+        windowManager.updateViewLayout(panel, params)
+    }
 
-    private fun dp(value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
+    private fun movePanel(position: PanelPosition) {
+        val params = panelParams ?: return
+        panelLayout.move(position, params)
+        windowManager.updateViewLayout(panel, params)
+    }
+
+    private fun dockPanel() {
+        val params = panelParams ?: return
+        panelLayout.dock(params)
+        relayoutPanel()
+    }
 
     companion object {
         private const val TAG = "MCP:ControlOverlay"
         private const val PANEL_HIT_SLOP_DP = 8
-        private const val PANEL_WIDTH_DP = 360
-        private const val PANEL_MARGIN_DP = 16
     }
 }

@@ -1,18 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="control_overlay_active">Orulink is controlling</string>
+    <string name="control_overlay_task_title">Phone automation</string>
+    <string name="control_overlay_active">AI is controlling</string>
     <string name="control_overlay_waiting">Waiting for next action</string>
     <string name="control_overlay_paused">You have control</string>
     <string name="control_overlay_local_control">Remote actions are paused</string>
     <string name="control_overlay_takeover">Take over</string>
+    <string name="control_overlay_pause">Pause</string>
+    <string name="control_overlay_user_paused">AI actions paused</string>
+    <string name="control_overlay_pausing">Pausing AI actions</string>
+    <string name="control_overlay_resume_hint">Resume when you are ready</string>
+    <string name="control_overlay_compact_taken_over">Yours</string>
+    <string name="control_overlay_compact_pausing">Pausing</string>
     <string name="control_overlay_resume">Resume</string>
-    <string name="control_overlay_stop">Stop</string>
+    <string name="control_overlay_return_to_ai">Return to AI</string>
+    <string name="control_overlay_stop">End task</string>
     <string name="control_overlay_reading">Reading the screen</string>
     <string name="control_overlay_scrolling">Scrolling the page</string>
     <string name="control_overlay_tapping">Interacting with the screen</string>
     <string name="control_overlay_typing">Entering text</string>
     <string name="control_overlay_opening">Opening an app</string>
-    <string name="control_overlay_connected">Ready for next action</string>
+    <string name="control_overlay_connected">Remote control connected</string>
+    <string name="control_overlay_expand">Orulink: %1$s. Show controls. Drag to move.</string>
+    <string name="control_overlay_collapse">Collapse controls</string>
+    <string name="control_overlay_compact_ready">Ready</string>
+    <string name="control_overlay_compact_active">Active</string>
+    <string name="control_overlay_compact_paused">Paused</string>
+    <string name="control_overlay_compact_handover">Pausing</string>
+    <string name="control_overlay_compact_stopping">Stopping</string>
     <string name="control_overlay_stopping">Stopping remote control</string>
     <string name="control_overlay_handing_over">Handing control to you</string>
     <string name="control_overlay_finishing_gesture">Waiting for the current gesture</string>
