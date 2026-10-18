@@ -1,0 +1,377 @@
+name: Edge Release
+
+# Rolling "edge" pre-release tracking main: on every push to main (i.e. every merged
+# PR), rebuild the four APKs and update the SINGLE existing "edge" release in place —
+# the release is created only on the very first run, never duplicated. Asset filenames
+# are stable so download links never change; only their content and the release body do.
+#
+# Safety properties:
+# - The release is always marked --prerelease, so the app's in-app update checker
+#   (GitHub /releases/latest, which excludes pre-releases and drafts) never offers it.
+# - The "edge" tag does not match release.yml's 'v*' trigger and is excluded from
+#   Gradle's `git describe --match v*` version derivation, so it interferes with
+#   neither the stable release workflow nor version names/codes.
+# - Publishing is gated on the full CI suite for the commit (lint, unit/integration,
+#   E2E, both release builds). The wait step only waits for the checks to COMPLETE
+#   (any conclusion — ci.yml cancels a superseded commit's CI run when a newer merge
+#   lands, and an already-failed check keeps its 'failure' conclusion); the decide
+#   step is the sole arbiter of the real per-check conclusions: all checks green ->
+#   publish; checks not green but main has moved on -> the build/publish job is
+#   SKIPPED (neutral, the newer run publishes instead); checks not green while the
+#   commit is still main HEAD -> the gate fails loudly (broken main must be visible).
+# - Runs QUEUE (no cancel-in-progress): a publish is never cancelled mid-upload,
+#   and the freshness guard before publishing keeps queued stale runs from
+#   overwriting a newer run's publish, so publishes happen in order and the newest
+#   commit always wins. NOTE: the four-asset replacement itself is four independent
+#   REST calls, not a transaction — during the seconds-long replacement window a
+#   downloader can still observe assets from two adjacent commits (or a transient
+#   404); harmless for single-APK installs, unavoidable with the releases API.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: edge-release
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Gate on CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      publish: ${{ steps.decide.outputs.publish }}
+    steps:
+      # ── 1. Wait for the CI checks on this commit to COMPLETE (not necessarily pass:
+      #      every terminal conclusion is tolerated, so a completed check — even a
+      #      superseded commit's 'cancelled'/'failure'/'timed_out' one — can never fail
+      #      this step; conclusions are judged in the next step. The one case this step
+      #      does fail on its own: no matching check run appears within the discovery
+      #      timeout (raised from the 60s default to tolerate Checks-API registration
+      #      lag), which means CI never started for this commit — failing loudly is
+      #      correct there, since publishing would be ungated. ──
+      - name: Wait for CI to complete
+        uses: lewagon/wait-on-check-action@v1.9.1
+        with:
+          ref: ${{ github.sha }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          check-regexp: '^(Build Release - (GMS|FOSS)|E2E Tests|Unit & Integration Tests|Lint)$'
+          wait-interval: 30
+          allowed-conclusions: success,failure,cancelled,timed_out,skipped,neutral,action_required,stale
+          checks-discovery-timeout: 600
+          running-workflow-name: 'Gate on CI'
+
+      # ── 2. Decide whether to publish from the real check conclusions ──
+      - name: Decide whether to publish
+        id: decide
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          # The check-runs API defaults to filter=latest, returning only the latest
+          # run per check suite, so re-runs are counted by their final conclusion.
+          # `gh api --paginate` emits one JSON object per page, and its --jq runs
+          # per page (which would break aggregation across pages), so the pages are
+          # slurped into a single external jq invocation instead.
+          SUCCESS_COUNT=$(gh api "repos/${REPO}/commits/${GITHUB_SHA}/check-runs?per_page=100" --paginate |
+            jq -s '[.[].check_runs[]
+                    | select(.name == "Build Release - GMS"
+                          or .name == "Build Release - FOSS"
+                          or .name == "E2E Tests"
+                          or .name == "Unit & Integration Tests"
+                          or .name == "Lint")
+                    | select(.conclusion == "success")
+                    | .name] | unique | length')
+
+          if [ "$SUCCESS_COUNT" -eq 5 ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "All 5 gated CI checks succeeded for ${GITHUB_SHA}."
+            exit 0
+          fi
+
+          MAIN_HEAD=$(gh api "repos/${REPO}/branches/main" --jq '.commit.sha')
+          if [ "$MAIN_HEAD" != "$GITHUB_SHA" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CI did not fully succeed for ${GITHUB_SHA} (${SUCCESS_COUNT}/5 checks green) and main has moved on; the newer run will publish. Skipping."
+          else
+            echo "::error::CI did not fully succeed for ${GITHUB_SHA} (${SUCCESS_COUNT}/5 checks green) and it is still main HEAD; not publishing a build that CI has not validated."
+            exit 1
+          fi
+
+  edge-release:
+    name: Update Edge Release
+    needs: gate
+    if: needs.gate.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      # ── 1. Checkout with full history (versionName/versionCode are git-derived) ──
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      # ── 2. Derive edge metadata (version name, commit, last change) ──
+      - name: Derive edge metadata
+        id: meta
+        run: |
+          # Mirror of getGitDescribeVersion() in app/build.gradle.kts: the release body
+          # must show the exact versionName Gradle embeds in the APKs. Keep in sync.
+          DESCRIBE="$(git describe --tags --match 'v*' --always)"
+          if [[ "$DESCRIBE" =~ ^v(.+)-([0-9]+)-g([0-9a-f]+)$ ]]; then
+            VERSION="${BASH_REMATCH[1]}-dev.${BASH_REMATCH[2]}+${BASH_REMATCH[3]}"
+          elif [[ "$DESCRIBE" =~ ^v([0-9]+\.[0-9]+\.[0-9]+(-.+)?)$ ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+          else
+            VERSION="0.0.0-dev+${DESCRIBE}"
+          fi
+
+          SHORT_SHA="$(git rev-parse --short HEAD)"
+          BUILT_AT="$(date -u '+%Y-%m-%d %H:%M')"
+
+          # Last change: for GitHub merge commits ("Merge pull request #N from ..."),
+          # the PR title lives in the commit body; squash/direct commits carry it in
+          # the subject already.
+          SUBJECT="$(git log -1 --pretty=%s)"
+          BODY_FIRST_LINE="$(git log -1 --pretty=%b | head -n 1)"
+          if [[ "$SUBJECT" =~ ^Merge\ pull\ request\ \#([0-9]+) ]] && [ -n "$BODY_FIRST_LINE" ]; then
+            LAST_CHANGE="$BODY_FIRST_LINE (#${BASH_REMATCH[1]})"
+          else
+            LAST_CHANGE="$SUBJECT"
+          fi
+
+          # The PR title is contributor-controlled and is rendered in the public
+          # release body inside a code span (so its markdown is inert); strip
+          # backticks so the value cannot terminate the span early.
+          LAST_CHANGE="${LAST_CHANGE//\`/}"
+
+          {
+            echo "version=$VERSION"
+            echo "short-sha=$SHORT_SHA"
+            echo "built-at=$BUILT_AT"
+            echo "last-change=$LAST_CHANGE"
+          } >> "$GITHUB_OUTPUT"
+
+          # The step-summary table cell gets the same code-span treatment as the
+          # release body, plus pipe escaping so the value cannot break the table.
+          SUMMARY_LAST_CHANGE="${LAST_CHANGE//|/\\|}"
+          echo "### Edge Metadata" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Version | \`$VERSION\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Commit | \`$SHORT_SHA\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Built | $BUILT_AT UTC |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Last change | \`$SUMMARY_LAST_CHANGE\` |" >> "$GITHUB_STEP_SUMMARY"
+
+      # ── 3. Setup build toolchains (same as release.yml) ──
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # ── 4. Compile native dependencies (cached by submodule content) ──
+      - name: Cache cloudflared Android native
+        id: cache-cloudflared
+        uses: actions/cache@v6
+        with:
+          path: |
+            app/src/main/jniLibs/arm64-v8a/libcloudflared.so
+            app/src/main/jniLibs/x86_64/libcloudflared.so
+          key: cloudflared-android-${{ runner.os }}-${{ hashFiles('.gitmodules', 'vendor/cloudflared/**/*.go', 'vendor/cloudflared/go.sum') }}
+
+      - name: Cache ngrok-java Android native
+        id: cache-ngrok-android
+        uses: actions/cache@v6
+        with:
+          path: |
+            app/src/main/jniLibs/arm64-v8a/libngrok_java.so
+            app/src/main/jniLibs/x86_64/libngrok_java.so
+            vendor/ngrok-java/ngrok-java/target/ngrok-java-1.2.0-SNAPSHOT.jar
+            vendor/ngrok-java/ngrok-java-native/target/ngrok-java-native-classes.jar
+          key: ngrok-android-v2-${{ runner.os }}-${{ hashFiles('.gitmodules', 'vendor/ngrok-java/**/*.toml', 'vendor/ngrok-java/**/pom.xml', 'vendor/ngrok-java/ngrok-java-native/src/**') }}
+
+      - name: Set up Go
+        if: steps.cache-cloudflared.outputs.cache-hit != 'true'
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.25.6'
+
+      - name: Set up Rust
+        if: steps.cache-ngrok-android.outputs.cache-hit != 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - name: Compile cloudflared for Android
+        if: steps.cache-cloudflared.outputs.cache-hit != 'true'
+        run: make compile-cloudflared
+
+      - name: Compile ngrok-java native for Android
+        if: steps.cache-ngrok-android.outputs.cache-hit != 'true'
+        run: make compile-ngrok-native
+        env:
+          JAVA_11_HOME: ${{ env.JAVA_HOME }}
+          JAVA_17_HOME: ${{ env.JAVA_HOME }}
+
+      # ── 5. Geolocation DB toolchain (generated at build time from DB-IP City Lite) ──
+      - name: Set up Python (geolocation DB generator)
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Compute DB-IP month
+        id: dbip-month
+        run: echo "month=$(date +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache DB-IP source CSV
+        uses: actions/cache@v6
+        with:
+          path: .dbip-cache
+          key: dbip-csv-${{ steps.dbip-month.outputs.month }}
+
+      # ── 6. Decode the release keystore so the release APKs are signed with the same
+      #      key as stable releases (required for edge <-> stable install-over) ──
+      - name: Decode release keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "::error::RELEASE_KEYSTORE_BASE64 secret is not set; release APKs would be unsigned"
+            exit 1
+          fi
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/release.jks"
+          {
+            echo "storeFile=$GITHUB_WORKSPACE/release.jks"
+            echo "storePassword=$RELEASE_KEYSTORE_PASSWORD"
+            echo "keyAlias=$RELEASE_KEY_ALIAS"
+            echo "keyPassword=$RELEASE_KEY_PASSWORD"
+          } > "$GITHUB_WORKSPACE/keystore.properties"
+
+      # ── 7. Build APKs (versionName/versionCode derived by Gradle from git) ──
+      - name: Build APKs
+        run: ./gradlew assembleGmsDebug assembleFossDebug assembleGmsRelease assembleFossRelease
+
+      # ── 8. Collect APKs under stable edge filenames (download links never change) ──
+      - name: Collect edge assets
+        run: |
+          mkdir -p release-assets
+
+          for flavor in gms foss; do
+            debug_apk="app/build/outputs/apk/${flavor}/debug/app-${flavor}-debug.apk"
+            if [ ! -f "$debug_apk" ]; then
+              echo "::error::Debug APK not found at $debug_apk"
+              exit 1
+            fi
+            cp "$debug_apk" \
+              "release-assets/android-remote-control-mcp-edge-${flavor}-debug.apk"
+
+            release_apk="app/build/outputs/apk/${flavor}/release/app-${flavor}-release.apk"
+            if [ ! -f "$release_apk" ]; then
+              echo "::error::Signed release APK not found at $release_apk"
+              exit 1
+            fi
+            cp "$release_apk" \
+              "release-assets/android-remote-control-mcp-edge-${flavor}-release.apk"
+          done
+
+          echo "### Edge Assets" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          ls -lh release-assets/ >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      # ── 9. Freshness guard: skip publishing if main moved past this commit ──
+      #        Runs queue in this concurrency group instead of cancelling, so a
+      #        publish is never interrupted mid-upload; this guard is what keeps
+      #        the release from being overwritten with a superseded build — the
+      #        newer queued run publishes instead.
+      - name: Check this commit is still main HEAD
+        id: freshness
+        run: |
+          git fetch origin main --quiet
+          if [ "$(git rev-parse origin/main)" != "$GITHUB_SHA" ]; then
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::main has moved past $GITHUB_SHA; the newer run will publish. Skipping publish steps."
+          else
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── 10. Move the edge tag to this commit ──
+      #       Force-push is intentional: "edge" is a rolling pointer, not history.
+      #       Pushing with GITHUB_TOKEN cannot trigger other workflows recursively,
+      #       and release.yml only matches 'v*' tags anyway.
+      - name: Update edge tag
+        if: steps.freshness.outputs.stale != 'true'
+        run: |
+          git tag -f edge
+          git push -f origin edge
+
+      # ── 11. Create the edge release once, then always update it in place ──
+      - name: Create or update edge release
+        if: steps.freshness.outputs.stale != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          SHORT_SHA: ${{ steps.meta.outputs.short-sha }}
+          BUILT_AT: ${{ steps.meta.outputs.built-at }}
+          LAST_CHANGE: ${{ steps.meta.outputs.last-change }}
+        run: |
+          cat > edge-release-body.md <<EOF
+          ## ⚠️ Rolling development build
+
+          This pre-release always tracks the latest \`main\` commit. It is rebuilt and its APKs are replaced automatically on every merged pull request — download links stay the same, the content changes.
+
+          - **Version**: \`${VERSION}\` (commit \`${SHORT_SHA}\`)
+          - **Built**: ${BUILT_AT} UTC
+          - **Last change**: \`${LAST_CHANGE}\`
+
+          **This is not a stable release.** It may contain regressions, incomplete features, or bugs. For production use, install the [latest stable release](https://github.com/${REPO}/releases/latest). The in-app update checker only offers stable releases and will never prompt you to install an edge build.
+
+          ### Flavors
+          - \`gms\` — standard build (Google Play services geofencing/location)
+          - \`foss\` — no Google dependencies
+
+          Each flavor ships two APKs:
+          - \`…-release.apk\` — signed with the same key as stable releases, so it installs cleanly over a stable install.
+          - \`…-debug.apk\` — debug-signed, with the separate \`.debug\` application id: it installs **alongside** the main app (never over it), for testing only.
+          EOF
+
+          if gh release view edge --repo "$REPO" > /dev/null 2>&1; then
+            gh release edit edge \
+              --repo "$REPO" \
+              --prerelease \
+              --title "Edge (rolling)" \
+              --notes-file edge-release-body.md
+            gh release upload edge \
+              --repo "$REPO" \
+              --clobber \
+              release-assets/*.apk
+          else
+            gh release create edge \
+              --repo "$REPO" \
+              --prerelease \
+              --title "Edge (rolling)" \
+              --notes-file edge-release-body.md \
+              release-assets/*.apk
+          fi
+
+          echo "### Edge Release Updated" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Version: \`$VERSION\` (commit \`$SHORT_SHA\`)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "[View release](https://github.com/${REPO}/releases/tag/edge)" >> "$GITHUB_STEP_SUMMARY"

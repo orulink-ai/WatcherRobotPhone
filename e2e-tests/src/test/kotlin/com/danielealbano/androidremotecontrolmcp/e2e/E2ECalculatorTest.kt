@@ -1,0 +1,289 @@
+package com.danielealbano.androidremotecontrolmcp.e2e
+
+import io.modelcontextprotocol.kotlin.sdk.types.ImageContent
+import io.modelcontextprotocol.kotlin.sdk.types.TextContent
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.MethodOrderer
+import org.junit.jupiter.api.Order
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.TestMethodOrder
+
+/**
+ * E2E test: Calculator App (7 + 3 = 10)
+ *
+ * This test verifies the entire MCP stack by:
+ * 1. Using the shared redroid container (via [SharedAndroidContainer])
+ * 2. Using MCP tools to interact with the Simple Calculator app
+ * 3. Verifying the calculation result via get_screen_state compact TSV output
+ * 4. Verifying get_screen_state with include_screenshot returns valid image data
+ *
+ * Uses [SharedAndroidContainer] singleton to share the redroid container
+ * across all E2E test classes, avoiding ~2-4 minute container boot per class.
+ *
+ * The Simple Calculator app (com.simplemobiletools.calculator) is installed
+ * during container setup from test resources.
+ *
+ * Requires rootful Podman to be available on the host machine.
+ */
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@TestMethodOrder(MethodOrderer.OrderAnnotation::class)
+class E2ECalculatorTest {
+
+    private val mcpClient = SharedAndroidContainer.mcpClient
+
+    companion object {
+        /**
+         * Maximum time to wait for node search before giving up.
+         */
+        private const val NODE_WAIT_TIMEOUT_MS = 20_000L
+
+        /**
+         * Maximum time to wait for the calculator app to become visible
+         * in the screen state after launching via monkey command.
+         */
+        private const val APP_LAUNCH_TIMEOUT_MS = 30_000L
+
+        /**
+         * Simple Calculator package name (installed from test resources).
+         */
+        private const val CALCULATOR_PACKAGE = "com.simplemobiletools.calculator"
+
+        /**
+         * Tool name prefix for E2E tests. Centralized from [AndroidContainerSetup.TOOL_NAME_PREFIX]
+         * to document the empty device_slug assumption.
+         */
+        private const val TOOL_PREFIX = AndroidContainerSetup.TOOL_NAME_PREFIX
+
+        /**
+         * Maximum number of retry attempts for operations that may fail
+         * transiently on slow CI emulators (accessibility service unavailable,
+         * screenshot capture, etc.).
+         */
+        private const val MAX_RETRY_ATTEMPTS = 3
+
+        /**
+         * Delay between retry attempts in milliseconds.
+         */
+        private const val RETRY_DELAY_MS = 3_000L
+    }
+
+    @BeforeEach
+    fun ensureAccessibility() {
+        SharedAndroidContainer.ensureAccessibilityService()
+    }
+
+    @Test
+    @Order(1)
+    fun `MCP server lists all available tools`() = runBlocking {
+        val result = mcpClient.listTools()
+        assertTrue(result.tools.size >= 27, "Expected at least 27 tools, got: ${result.tools.size}")
+        assertTrue(
+            result.tools.all { it.name.startsWith(TOOL_PREFIX) },
+            "All tools should have '$TOOL_PREFIX' prefix, found: ${
+                result.tools.filter { !it.name.startsWith(TOOL_PREFIX) }.map { it.name }
+            }",
+        )
+    }
+
+    @Test
+    @Order(2)
+    fun `calculate 7 plus 3 equals 10`() = runBlocking {
+        // Step 1: Press home to ensure clean state
+        mcpClient.callTool("${TOOL_PREFIX}press_home")
+        Thread.sleep(1_000)
+
+        // Step 2: Launch Simple Calculator app via monkey command and poll for visibility
+        AndroidContainerSetup.launchCalculator()
+        val treeStrOrNull = waitForAppVisible(CALCULATOR_PACKAGE, "Calculator", APP_LAUNCH_TIMEOUT_MS)
+        assertNotNull(
+            treeStrOrNull,
+            "Calculator should be visible in screen state within ${APP_LAUNCH_TIMEOUT_MS}ms",
+        )
+        val treeStr = treeStrOrNull!!
+        println("[E2E Calculator] Screen state excerpt: ${treeStr.take(1000)}")
+        // Verify new note lines
+        assertTrue(
+            treeStr.contains("note:flags: on=onscreen off=offscreen"),
+            "Screen state should contain flags legend note line",
+        )
+        assertTrue(
+            treeStr.contains("note:offscreen items require scroll_to_node before interaction"),
+            "Screen state should contain offscreen hint note line",
+        )
+        // Verify new comma-separated flag format (at least one element should be on-screen + clickable + enabled)
+        assertTrue(
+            treeStr.contains("on,clk") || treeStr.contains("on,ena"),
+            "Screen state flags should use comma-separated abbreviations",
+        )
+        // Negative assertions: old single-char format must not appear
+        assertFalse(
+            treeStr.contains("\tvcn") || treeStr.contains("\tvclfsen") || treeStr.contains("\tvn"),
+            "Screen state should NOT contain old single-char flag format",
+        )
+
+        // Step 4: Find and click "7" button
+        val button7 = findNodeWithRetry("text", "7")
+        assertNotNull(button7, "Could not find '7' button in Calculator")
+        mcpClient.callTool("${TOOL_PREFIX}click_node", mapOf("node_id" to button7!!))
+        Thread.sleep(500)
+
+        // Step 5: Find and click "+" button
+        val buttonPlus = findNodeWithRetry("text", "+")
+        assertNotNull(buttonPlus, "Could not find '+' button in Calculator")
+        mcpClient.callTool("${TOOL_PREFIX}click_node", mapOf("node_id" to buttonPlus!!))
+        Thread.sleep(500)
+
+        // Step 6: Find and click "3" button
+        val button3 = findNodeWithRetry("text", "3")
+        assertNotNull(button3, "Could not find '3' button in Calculator")
+        mcpClient.callTool("${TOOL_PREFIX}click_node", mapOf("node_id" to button3!!))
+        Thread.sleep(500)
+
+        // Step 7: Find and click "=" button
+        val buttonEquals = findNodeWithRetry("text", "=")
+        assertNotNull(buttonEquals, "Could not find '=' button in Calculator")
+        mcpClient.callTool("${TOOL_PREFIX}click_node", mapOf("node_id" to buttonEquals!!))
+        Thread.sleep(1_000)
+
+        // Step 8: Wait for UI to settle
+        mcpClient.callTool("${TOOL_PREFIX}wait_for_idle", mapOf("timeout" to 3000))
+
+        // Step 9: Verify result "10" in screen state
+        val resultTree = mcpClient.callTool("${TOOL_PREFIX}get_screen_state")
+        val resultTreeStr = (resultTree.content[0] as TextContent).text
+        assertTrue(
+            resultTreeStr.contains("10"),
+            "Result '10' should appear in screen state after 7+3=. Excerpt: ${resultTreeStr.take(500)}",
+        )
+    }
+
+    @Test
+    @Order(3)
+    fun `get_screen_state with screenshot returns valid image data`() = runBlocking {
+        // Retry screenshot capture — can be transiently unavailable on slow CI emulators.
+        var result = mcpClient.callTool(
+            "${TOOL_PREFIX}get_screen_state",
+            mapOf("include_screenshot" to true),
+        )
+
+        for (attempt in 1..MAX_RETRY_ATTEMPTS) {
+            if (result.isError != true && result.content.size >= 2) break
+            val errorText = (result.content.firstOrNull() as? TextContent)?.text ?: "unknown"
+            println("[E2E Calculator] Screenshot attempt $attempt failed (isError=${result.isError}, " +
+                "content.size=${result.content.size}): $errorText — retrying after ${RETRY_DELAY_MS}ms")
+            Thread.sleep(RETRY_DELAY_MS)
+            result = mcpClient.callTool(
+                "${TOOL_PREFIX}get_screen_state",
+                mapOf("include_screenshot" to true),
+            )
+        }
+
+        assertNotEquals(
+            true,
+            result.isError,
+            "get_screen_state should not return error: " +
+                (result.content.firstOrNull() as? TextContent)?.text,
+        )
+
+        val content = result.content
+        assertTrue(
+            content.size >= 2,
+            "Result should have at least 2 content items (text + image), got: ${content.size}. " +
+                "Content[0]: ${(content.firstOrNull() as? TextContent)?.text?.take(200)}",
+        )
+
+        // First item is TextContent with compact TSV
+        assertTrue(content[0] is TextContent, "First content item should be TextContent")
+
+        // Second item is ImageContent with JPEG data
+        val imageContent = content[1] as ImageContent
+
+        val mimeType = imageContent.mimeType
+        assertTrue(mimeType == "image/jpeg", "Screenshot mimeType should be 'image/jpeg', got: $mimeType")
+
+        val data = imageContent.data
+        assertNotNull(data, "Screenshot data should not be null")
+        assertFalse(data.isEmpty(), "Screenshot data should not be empty")
+        assertTrue(data.length > 100, "Screenshot data should be substantial (got ${data.length} chars)")
+    }
+
+    /**
+     * Polls get_screen_state until the app identified by [packageName] or [appLabel]
+     * is visible, or [timeoutMs] elapses. Returns the screen state text on success,
+     * or null if the app was not visible within the timeout.
+     */
+    private suspend fun waitForAppVisible(
+        packageName: String,
+        appLabel: String,
+        timeoutMs: Long,
+    ): String? {
+        val startTime = System.currentTimeMillis()
+        while (System.currentTimeMillis() - startTime < timeoutMs) {
+            try {
+                val tree = mcpClient.callTool("${TOOL_PREFIX}get_screen_state")
+                if (tree.isError != true) {
+                    val text = (tree.content[0] as? TextContent)?.text ?: ""
+                    if (text.contains(appLabel, ignoreCase = true) ||
+                        text.contains(packageName, ignoreCase = true)
+                    ) {
+                        return text
+                    }
+                }
+            } catch (_: Exception) {
+                // Transient error, retry
+            }
+            Thread.sleep(1_000)
+        }
+        return null
+    }
+
+    /**
+     * Find a node by criteria, retrying up to NODE_WAIT_TIMEOUT_MS.
+     * Returns the node_id of the first match, or null if not found.
+     *
+     * The find_nodes tool returns a [CallToolResult] where the first content
+     * item is a [TextContent] containing a JSON-serialized string with the
+     * nodes array:
+     * ```json
+     * {"nodes":[...]}
+     * ```
+     */
+    private suspend fun findNodeWithRetry(by: String, value: String): String? {
+        val startTime = System.currentTimeMillis()
+
+        while (System.currentTimeMillis() - startTime < NODE_WAIT_TIMEOUT_MS) {
+            try {
+                val result = mcpClient.callTool(
+                    "${TOOL_PREFIX}find_nodes",
+                    mapOf("by" to by, "value" to value, "exact_match" to true),
+                )
+
+                val textContent = (result.content[0] as? TextContent)?.text
+                if (textContent != null) {
+                    // Parse the inner JSON string
+                    val innerJson = Json.parseToJsonElement(stripUntrustedWarning(textContent)).jsonObject
+                    val nodes = innerJson["nodes"]?.jsonArray
+                    if (nodes != null && nodes.isNotEmpty()) {
+                        return nodes[0].jsonObject["node_id"]?.jsonPrimitive?.contentOrNull
+                    }
+                }
+            } catch (_: Exception) {
+                // Node not found yet, retry
+            }
+            Thread.sleep(500)
+        }
+
+        return null
+    }
+}

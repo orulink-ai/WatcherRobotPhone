@@ -1,0 +1,254 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Create Draft Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      # ── 1. Checkout with full history (needed for tag comparison) ──
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      # ── 2. Warn if tagged commit is not on main ──
+      - name: Verify tagged commit is on main
+        run: |
+          if ! git branch -r --contains HEAD | grep -q 'origin/main'; then
+            echo "::warning::The tagged commit does not appear to be on the main branch. CI may not have run for this commit, and the release workflow will wait until timeout."
+          fi
+
+      # ── 3. Wait for CI to pass on this commit (gates on existing CI results) ──
+      # The CI build-release job is a per-flavor matrix, so the checks are named
+      # "Build Release - GMS" and "Build Release - FOSS"; the regexp waits for both.
+      - name: Wait for CI to pass
+        uses: lewagon/wait-on-check-action@v1.9.1
+        with:
+          ref: ${{ github.sha }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          check-regexp: '^Build Release - (GMS|FOSS)$'
+          wait-interval: 30
+          allowed-conclusions: success
+          running-workflow-name: 'Create Draft Release'
+
+      # ── 4. Parse tag → VERSION_NAME + pre-release flag (versionCode is derived by Gradle) ──
+      - name: Parse tag
+        id: parse-tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          # Strip 'v' prefix to get version
+          VERSION="${TAG#v}"
+
+          # Validate MAJOR.MINOR.PATCH[-PRERELEASE] and extract the pre-release suffix
+          if [[ "$VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-(.+))?$ ]]; then
+            PRERELEASE="${BASH_REMATCH[5]}"
+          else
+            echo "::error::Invalid version format: $VERSION (expected: MAJOR.MINOR.PATCH[-PRERELEASE])"
+            exit 1
+          fi
+
+          # Determine the pre-release flag from the tag suffix.
+          # The numeric versionCode is derived by Gradle from git history
+          # (see app/build.gradle.kts getGitVersionCode); no version-code math here.
+          if [ -z "$PRERELEASE" ]; then
+            IS_PRERELEASE="false"
+          elif [ "$PRERELEASE" = "alpha" ] || [ "$PRERELEASE" = "beta" ]; then
+            IS_PRERELEASE="true"
+          elif [[ "$PRERELEASE" =~ ^rc([0-9]+)$ ]]; then
+            RC_NUM=$((10#${BASH_REMATCH[1]}))
+            if [ "$RC_NUM" -lt 1 ]; then
+              echo "::error::RC number must be >= 1 (got rc${RC_NUM})"
+              exit 1
+            fi
+            IS_PRERELEASE="true"
+          else
+            echo "::error::Unknown pre-release type: $PRERELEASE (expected: alpha, beta, or rcN)"
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "is-prerelease=$IS_PRERELEASE" >> "$GITHUB_OUTPUT"
+
+          echo "### Parsed Tag" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Tag | \`$TAG\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Version Name | \`$VERSION\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Pre-release | $IS_PRERELEASE |" >> "$GITHUB_STEP_SUMMARY"
+
+      # ── 5. Setup build toolchains (same as CI build-release job) ──
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # ── 6. Compile native dependencies (cached by submodule content) ──
+      - name: Cache cloudflared Android native
+        id: cache-cloudflared
+        uses: actions/cache@v6
+        with:
+          path: |
+            app/src/main/jniLibs/arm64-v8a/libcloudflared.so
+            app/src/main/jniLibs/x86_64/libcloudflared.so
+          key: cloudflared-android-${{ runner.os }}-${{ hashFiles('.gitmodules', 'vendor/cloudflared/**/*.go', 'vendor/cloudflared/go.sum') }}
+
+      - name: Cache ngrok-java Android native
+        id: cache-ngrok-android
+        uses: actions/cache@v6
+        with:
+          path: |
+            app/src/main/jniLibs/arm64-v8a/libngrok_java.so
+            app/src/main/jniLibs/x86_64/libngrok_java.so
+            vendor/ngrok-java/ngrok-java/target/ngrok-java-1.2.0-SNAPSHOT.jar
+            vendor/ngrok-java/ngrok-java-native/target/ngrok-java-native-classes.jar
+          key: ngrok-android-v2-${{ runner.os }}-${{ hashFiles('.gitmodules', 'vendor/ngrok-java/**/*.toml', 'vendor/ngrok-java/**/pom.xml', 'vendor/ngrok-java/ngrok-java-native/src/**') }}
+
+      - name: Set up Go
+        if: steps.cache-cloudflared.outputs.cache-hit != 'true'
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.25.6'
+
+      - name: Set up Rust
+        if: steps.cache-ngrok-android.outputs.cache-hit != 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - name: Compile cloudflared for Android
+        if: steps.cache-cloudflared.outputs.cache-hit != 'true'
+        run: make compile-cloudflared
+
+      - name: Compile ngrok-java native for Android
+        if: steps.cache-ngrok-android.outputs.cache-hit != 'true'
+        run: make compile-ngrok-native
+        env:
+          JAVA_11_HOME: ${{ env.JAVA_HOME }}
+          JAVA_17_HOME: ${{ env.JAVA_HOME }}
+
+      # ── 7. Geolocation DB toolchain (generated at build time from DB-IP City Lite) ──
+      - name: Set up Python (geolocation DB generator)
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Compute DB-IP month
+        id: dbip-month
+        run: echo "month=$(date +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache DB-IP source CSV
+        uses: actions/cache@v6
+        with:
+          path: .dbip-cache
+          key: dbip-csv-${{ steps.dbip-month.outputs.month }}
+
+      # ── 8. Decode the release keystore and write signing config so the release APKs are signed.
+      #      app/build.gradle.kts applies the release signingConfig only when keystore.properties
+      #      exists at the repo root; without this step the release APKs build unsigned. ──
+      - name: Decode release keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "::error::RELEASE_KEYSTORE_BASE64 secret is not set; release APKs would be unsigned"
+            exit 1
+          fi
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/release.jks"
+          {
+            echo "storeFile=$GITHUB_WORKSPACE/release.jks"
+            echo "storePassword=$RELEASE_KEYSTORE_PASSWORD"
+            echo "keyAlias=$RELEASE_KEY_ALIAS"
+            echo "keyPassword=$RELEASE_KEY_PASSWORD"
+          } > "$GITHUB_WORKSPACE/keystore.properties"
+
+      # ── 9. Build APKs with version name from tag (versionCode derived by Gradle from git) ──
+      - name: Build APKs
+        env:
+          VERSION_NAME: ${{ steps.parse-tag.outputs.version }}
+        run: ./gradlew assembleGmsDebug assembleFossDebug assembleGmsRelease assembleFossRelease -PVERSION_NAME="$VERSION_NAME"
+
+      # ── 8. Rename APKs with proper names (per flavor: gms + foss) ──
+      - name: Rename APKs
+        env:
+          TAG: ${{ steps.parse-tag.outputs.tag }}
+        run: |
+          mkdir -p release-assets
+
+          for flavor in gms foss; do
+            # Debug APK
+            debug_apk="app/build/outputs/apk/${flavor}/debug/app-${flavor}-debug.apk"
+            if [ ! -f "$debug_apk" ]; then
+              echo "::error::Debug APK not found at $debug_apk"
+              exit 1
+            fi
+            cp "$debug_apk" \
+              "release-assets/android-remote-control-mcp-${TAG}-${flavor}-debug.apk"
+
+            # Release APK may be signed or unsigned depending on keystore config
+            if [ -f "app/build/outputs/apk/${flavor}/release/app-${flavor}-release.apk" ]; then
+              cp "app/build/outputs/apk/${flavor}/release/app-${flavor}-release.apk" \
+                "release-assets/android-remote-control-mcp-${TAG}-${flavor}-release.apk"
+            else
+              cp "app/build/outputs/apk/${flavor}/release/app-${flavor}-release-unsigned.apk" \
+                "release-assets/android-remote-control-mcp-${TAG}-${flavor}-release.apk"
+            fi
+          done
+
+          echo "### Release Assets" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          ls -lh release-assets/ >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      # ── 9. Create draft release with APK attachments ──
+      #      Notes are left to GitHub's native --generate-notes; the draft body
+      #      is finalized manually before publishing.
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.parse-tag.outputs.tag }}
+          IS_PRERELEASE: ${{ steps.parse-tag.outputs.is-prerelease }}
+          REPO: ${{ github.repository }}
+        run: |
+          PRERELEASE_FLAG=""
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          gh release create "$TAG" \
+            --draft \
+            --title "$TAG" \
+            --generate-notes \
+            $PRERELEASE_FLAG \
+            release-assets/*.apk
+
+          echo "### Draft Release Created" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Tag: \`$TAG\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Pre-release: $IS_PRERELEASE" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "[View release](https://github.com/${REPO}/releases/tag/${TAG})" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,3 @@
+# Gateway only. Run in the existing StartLux MLX environment on the model host.
+aiohttp==3.14.5
+# smoke.py also uses the existing pi-phone-use requirements (httpx etc.).

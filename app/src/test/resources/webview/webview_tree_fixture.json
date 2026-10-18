@@ -1,0 +1,270 @@
+{
+  "id": "win_root",
+  "className": "android.widget.FrameLayout",
+  "bounds": { "left": 0, "top": 0, "right": 1080, "bottom": 2400 },
+  "enabled": true,
+  "visible": true,
+  "children": [
+    {
+      "id": "native_toolbar",
+      "className": "android.widget.TextView",
+      "text": "Example News",
+      "bounds": { "left": 0, "top": 0, "right": 1080, "bottom": 140 },
+      "enabled": true,
+      "visible": true
+    },
+    {
+      "id": "webview_host",
+      "className": "android.webkit.WebView",
+      "bounds": { "left": 0, "top": 140, "right": 1080, "bottom": 2400 },
+      "enabled": true,
+      "visible": true,
+      "children": [
+        {
+          "id": "web_root",
+          "className": "android.view.View",
+          "bounds": { "left": 0, "top": 140, "right": 1080, "bottom": 2400 },
+          "enabled": true,
+          "visible": true,
+          "webRole": "rootWebArea",
+          "children": [
+            {
+              "id": "web_nav",
+              "className": "android.view.View",
+              "bounds": { "left": 0, "top": 140, "right": 1080, "bottom": 200 },
+              "enabled": true,
+              "visible": true,
+              "webRole": "navigation",
+              "children": [
+                {
+                  "id": "nav_link_home",
+                  "className": "android.view.View",
+                  "contentDescription": "Home",
+                  "bounds": { "left": 10, "top": 150, "right": 200, "bottom": 195 },
+                  "clickable": true,
+                  "enabled": true,
+                  "visible": true,
+                  "webRole": "link",
+                  "targetUrl": "https://news.example/home"
+                }
+              ]
+            },
+            {
+              "id": "article_1",
+              "className": "android.view.View",
+              "bounds": { "left": 0, "top": 200, "right": 1080, "bottom": 1000 },
+              "enabled": true,
+              "visible": true,
+              "webRole": "article",
+              "children": [
+                {
+                  "id": "a1_heading",
+                  "className": "android.view.View",
+                  "text": "Global Markets Rally",
+                  "bounds": { "left": 20, "top": 210, "right": 1060, "bottom": 270 },
+                  "enabled": true,
+                  "visible": true,
+                  "webRole": "heading"
+                },
+                {
+                  "id": "a1_link",
+                  "className": "android.view.View",
+                  "contentDescription": "Global Markets Rally full story",
+                  "bounds": { "left": 20, "top": 280, "right": 1060, "bottom": 700 },
+                  "clickable": true,
+                  "enabled": true,
+                  "visible": true,
+                  "webRole": "link",
+                  "targetUrl": "https://news.example/markets",
+                  "children": [
+                    {
+                      "id": "a1_link_text",
+                      "className": "android.view.View",
+                      "text": "Global Markets Rally full story",
+                      "bounds": { "left": 20, "top": 280, "right": 1060, "bottom": 340 },
+                      "enabled": true,
+                      "visible": true,
+                      "webRole": "staticText"
+                    },
+                    {
+                      "id": "a1_link_image",
+                      "className": "android.view.View",
+                      "contentDescription": "Markets chart",
+                      "bounds": { "left": 20, "top": 350, "right": 1060, "bottom": 700 },
+                      "enabled": true,
+                      "visible": true,
+                      "webRole": "image",
+                      "targetUrl": "https://img.example/markets.png"
+                    }
+                  ]
+                },
+                {
+                  "id": "a1_para",
+                  "className": "android.view.View",
+                  "bounds": { "left": 20, "top": 710, "right": 1060, "bottom": 990 },
+                  "enabled": true,
+                  "visible": true,
+                  "webRole": "paragraph",
+                  "children": [
+                    {
+                      "id": "a1_para_text",
+                      "className": "android.view.View",
+                      "text": "Investors responded positively to the new monetary policy announcement.",
+                      "bounds": { "left": 20, "top": 710, "right": 1060, "bottom": 990 },
+                      "enabled": true,
+                      "visible": true,
+                      "webRole": "staticText"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "article_2",
+              "className": "android.view.View",
+              "bounds": { "left": 0, "top": 1000, "right": 1080, "bottom": 1700 },
+              "enabled": true,
+              "visible": true,
+              "webRole": "article",
+              "children": [
+                {
+                  "id": "a2_heading",
+                  "className": "android.view.View",
+                  "text": "Sports Update",
+                  "bounds": { "left": 20, "top": 1010, "right": 1060, "bottom": 1070 },
+                  "enabled": true,
+                  "visible": true,
+                  "webRole": "heading"
+                },
+                {
+                  "id": "a2_list",
+                  "className": "android.view.View",
+                  "bounds": { "left": 20, "top": 1080, "right": 1060, "bottom": 1400 },
+                  "enabled": true,
+                  "visible": true,
+                  "webRole": "list",
+                  "children": [
+                    {
+                      "id": "a2_item_1",
+                      "className": "android.view.View",
+                      "text": "Team Alpha wins the final",
+                      "bounds": { "left": 30, "top": 1090, "right": 1050, "bottom": 1240 },
+                      "enabled": true,
+                      "visible": true,
+                      "webRole": "listItem"
+                    },
+                    {
+                      "id": "a2_item_2",
+                      "className": "android.view.View",
+                      "text": "Team Beta advances to the playoffs",
+                      "bounds": { "left": 30, "top": 1250, "right": 1050, "bottom": 1400 },
+                      "enabled": true,
+                      "visible": true,
+                      "webRole": "listItem"
+                    }
+                  ]
+                },
+                {
+                  "id": "a2_link",
+                  "className": "android.view.View",
+                  "contentDescription": "Sports Update full story",
+                  "bounds": { "left": 20, "top": 1410, "right": 1060, "bottom": 1470 },
+                  "clickable": true,
+                  "enabled": true,
+                  "visible": true,
+                  "webRole": "link",
+                  "targetUrl": "https://news.example/sports"
+                }
+              ]
+            },
+            {
+              "id": "article_3",
+              "className": "android.view.View",
+              "bounds": { "left": 0, "top": 1500, "right": 1080, "bottom": 1700 },
+              "enabled": true,
+              "visible": true,
+              "webRole": "article",
+              "children": [
+                {
+                  "id": "a3_heading",
+                  "className": "android.view.View",
+                  "text": "Match result",
+                  "bounds": { "left": 20, "top": 1510, "right": 1060, "bottom": 1560 },
+                  "enabled": true,
+                  "visible": true,
+                  "webRole": "heading"
+                },
+                {
+                  "id": "a3_score",
+                  "className": "android.view.View",
+                  "text": "Match result 3",
+                  "bounds": { "left": 20, "top": 1570, "right": 1060, "bottom": 1690 },
+                  "enabled": true,
+                  "visible": true,
+                  "webRole": "staticText"
+                }
+              ]
+            },
+            {
+              "id": "web_footer_container",
+              "className": "android.view.View",
+              "bounds": { "left": 0, "top": 1700, "right": 1080, "bottom": 1900 },
+              "enabled": true,
+              "visible": true,
+              "webRole": "genericContainer",
+              "children": [
+                {
+                  "id": "footer_text",
+                  "className": "android.view.View",
+                  "text": "All content is provided for informational purposes only.",
+                  "bounds": { "left": 20, "top": 1710, "right": 1060, "bottom": 1880 },
+                  "enabled": true,
+                  "visible": true,
+                  "webRole": "staticText"
+                }
+              ]
+            },
+            {
+              "id": "empty_section",
+              "className": "android.view.View",
+              "bounds": { "left": 0, "top": 1900, "right": 1080, "bottom": 1950 },
+              "enabled": true,
+              "visible": true,
+              "webRole": "section",
+              "children": [
+                {
+                  "id": "empty_generic",
+                  "className": "android.view.View",
+                  "bounds": { "left": 0, "top": 1900, "right": 1080, "bottom": 1950 },
+                  "enabled": true,
+                  "visible": true,
+                  "webRole": "genericContainer"
+                }
+              ]
+            },
+            {
+              "id": "banner_image",
+              "className": "android.view.View",
+              "contentDescription": "Promotional banner",
+              "bounds": { "left": 0, "top": 1950, "right": 1080, "bottom": 2200 },
+              "enabled": true,
+              "visible": true,
+              "webRole": "image",
+              "targetUrl": "https://img.example/banner.png"
+            },
+            {
+              "id": "subscribe_button",
+              "className": "android.view.View",
+              "text": "Subscribe",
+              "bounds": { "left": 400, "top": 2220, "right": 680, "bottom": 2300 },
+              "clickable": true,
+              "enabled": true,
+              "visible": true,
+              "webRole": "button"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="control_mode_title">AI control mode</string>
+    <string name="control_mode_start">Start AI control</string>
+    <string name="control_mode_exit">Exit AI control</string>
+    <string name="control_mode_inactive">AI control is off</string>
+    <string name="control_mode_waiting">AI control is on · Waiting for the next action</string>
+    <string name="control_mode_active">AI is controlling</string>
+    <string name="control_mode_paused">AI control is paused</string>
+    <string name="control_mode_taken_over">You have control</string>
+    <string name="control_mode_requires_service">Start the device service above before enabling AI control.</string>
+    <string name="control_mode_start_hint">The edge lighting stays ready until you choose to exit.</string>
+    <string name="control_mode_engaged_hint">Control stays ready between actions. After taking over, return control from the floating bar.</string>
+</resources>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- E2E Configuration Receiver (test configuration injection via adb shell). -->
+        <!-- Debug source set only, so it is absent from the release APK entirely. -->
+        <!-- Also gated on DUMP: a signature/privileged platform permission held by the adb shell
+             UID (com.android.shell) but NOT grantable to third-party apps, enforced by
+             ActivityManager against the sender's real binder UID. Debug builds are published as
+             release assets, so the source-set boundary alone does not keep this off user devices. -->
+        <receiver
+            android:name=".debug.E2EConfigReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
+
+        <!-- Debug-only: lets E2E tests approve a pending OAuth authorization. Absent from release. -->
+        <!-- Gated on DUMP (adb-shell-only) for the same reason as E2EConfigReceiver above:
+             approving an authorization is an auth bypass, and debug APKs reach real devices. -->
+        <receiver
+            android:name=".debug.OAuthApprovalTestReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
+    </application>
+
+</manifest>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="orulink_home_title">Orulink</string>
+    <string name="orulink_home_subtitle">Your Android, within reach</string>
+    <string name="orulink_service_title">Device control</string>
+    <string name="orulink_service_stopped">Start the service to accept MCP requests.</string>
+    <string name="orulink_service_running">Service is listening. Connect your agent using the details below.</string>
+    <string name="orulink_service_starting">Preparing the control service…</string>
+    <string name="orulink_service_stopping">Closing the control service…</string>
+    <string name="orulink_start_service">Start service</string>
+    <string name="orulink_stop_service">Stop service</string>
+    <string name="orulink_retry_service">Try again</string>
+    <string name="orulink_control_paused">New remote requests are paused</string>
+    <string name="orulink_control_active">Agent is operating this device</string>
+    <string name="orulink_control_waiting">Waiting for a control request</string>
+    <string name="orulink_channel_title">Event channel</string>
+    <string name="orulink_channel_idle">Waiting for events</string>
+    <string name="orulink_channel_active">Channel active</string>
+    <string name="orulink_start">Start</string>
+    <string name="orulink_stop">Stop</string>
+    <string name="orulink_setup_section">Device setup</string>
+    <string name="orulink_usb_connection">USB / ADB connection</string>
+    <string name="orulink_usb_condition">This local address is only available on the device. For a computer, connect USB and forward this port with ADB.</string>
+    <string name="orulink_lan_connection">Local network connection</string>
+    <string name="orulink_lan_condition">Use this address from a computer on the same reachable network. A listening service does not confirm a client connection.</string>
+    <string name="orulink_connection_stopped">Start the service before connecting.</string>
+    <string name="orulink_network_unavailable">No network address available</string>
+    <string name="orulink_service_error_title">Service could not start</string>
+</resources>
