@@ -116,7 +116,7 @@ class DecisionPolicy:
         fallback_timeout=15.0,
         clock=time.perf_counter,
     ):
-        if mode not in {"jev", "deepseek", "jev-auto"}:
+        if mode not in {"jev", "deepseek", "jev-auto", "startlux-instant", "startlux-autothink"}:
             raise ValueError("Unsupported decision policy mode")
         for budget in (primary_timeout, fallback_timeout):
             if type(budget) not in (int, float) or not math.isfinite(budget) or budget <= 0:
