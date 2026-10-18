@@ -20,6 +20,7 @@ from controller import PhoneRuntime, private_write
 from decision_policy import DecisionPolicy, DecisionPolicyError
 from own_mcp import McpError
 from providers import DecisionClient, ProviderError
+from local_providers import LOCAL_MODELS, StartLuxClient
 from worker_io import cancellation_scope, protocol_lines
 
 
@@ -109,7 +110,7 @@ async def serve(
     base=None,
 ):
     """Run the actual protocol; injectable dependencies keep tests device-free."""
-    if provider not in {"jev", "deepseek", "jev-auto", "skill"}:
+    if provider not in {"jev", "deepseek", "jev-auto", "skill", *LOCAL_MODELS}:
         raise ValueError("Unsupported phone decision mode")
     budgets = decision_timeouts() if provider == "jev-auto" else (5.0, 15.0)
     recipe = None
@@ -133,6 +134,8 @@ async def serve(
     client = (
         LocalRecipeClient()
         if provider == "skill"
+        else StartLuxClient(provider)
+        if provider in LOCAL_MODELS
         else client_factory(
             key_reader(),
             mode=os.environ.get("PHONE_BENCH_MODE", "warm"),
@@ -277,7 +280,7 @@ async def serve(
 async def main(argv=None, **serve_kwargs):
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--provider", choices=["jev", "deepseek", "jev-auto", "skill"], required=True
+        "--provider", choices=["jev", "deepseek", "jev-auto", "skill", *LOCAL_MODELS], required=True
     )
     parser.add_argument("--trial-id", required=True)
     args = parser.parse_args(argv)

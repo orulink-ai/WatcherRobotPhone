@@ -1,0 +1,21 @@
+{
+  "model": "startlux-4b-instant",
+  "state": {
+    "goal": "Open the Settings application.",
+    "screen": {"app": "launcher", "visible_apps": ["Settings", "Clock"]},
+    "history": []
+  },
+  "questions": {
+    "action": {
+      "type": "choice",
+      "instructions": "Select the next offered action that advances the goal.",
+      "criteria": {
+        "OPEN_APP:settings": "Open the Settings application",
+        "OPEN_APP:clock": "Open the Clock application",
+        "WAIT": "Wait for loading",
+        "BLOCKED": "Stop because no offered action can progress"
+      }
+    }
+  },
+  "return_details": true
+}

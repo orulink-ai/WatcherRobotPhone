@@ -11,6 +11,7 @@ import subprocess
 import time
 
 from config import decision_timeouts, output_dir, python_executable
+from local_providers import LOCAL_MODELS, local_settings
 from replay_worker import private_json, validate_trial_id
 from window_state import SUPPORTED_LAUNCHERS as SUPPORTED_LAUNCHERS, verified_launcher
 
@@ -69,8 +70,10 @@ def reset_phone(serial):
 
 def validate_configuration(provider):
     """Validate replay inputs and deadlines before any phone mutation."""
-    if provider not in {"jev", "deepseek", "jev-auto", "skill"}:
+    if provider not in {"jev", "deepseek", "jev-auto", "skill", *LOCAL_MODELS}:
         raise ValueError("Invalid provider")
+    if provider in LOCAL_MODELS:
+        local_settings(provider)
     budgets = decision_timeouts() if provider == "jev-auto" else None
     if provider == "skill":
         from controller import QUERY, TITLE
@@ -205,7 +208,7 @@ def launch(provider, trial_id, *, base=None, timeout=230):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("provider", choices=["jev", "deepseek", "jev-auto", "skill"])
+    parser.add_argument("provider", choices=["jev", "deepseek", "jev-auto", "skill", *LOCAL_MODELS])
     parser.add_argument("trial_id")
     args = parser.parse_args(argv)
     result = launch(args.provider, args.trial_id)

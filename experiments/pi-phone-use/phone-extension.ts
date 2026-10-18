@@ -21,7 +21,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const API = "phone-benchmark-stdio";
-type Backend = "jev" | "deepseek" | "jev-auto" | "skill";
+type Backend = "jev" | "deepseek" | "jev-auto" | "skill" | "startlux-instant" | "startlux-autothink";
 type Command = "observe" | "act" | "decide" | "finish";
 type Observation = { state: Record<string, unknown>; options: Record<string, string>; done: boolean };
 type Pending = { resolve(value: any): void; reject(error: Error): void; cleanup(): void };
@@ -218,9 +218,9 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: { terminalText:
   pi.registerProvider("phone-benchmark", {
     name: "Phone benchmark (local worker)",
     baseUrl: "stdio://phone-benchmark", apiKey: "local-worker-no-api-key", api: API,
-    models: ["jev", "deepseek", "jev-auto", "skill"].map((id) => ({
-      id, name: id === "skill" ? "Recorded phone skill with verified steps" : id === "jev-auto" ? "Jev 优先，DeepSeek 兜底" : id === "jev" ? "Jev 1.14 phone decisions" : "DeepSeek V4.1 Flash phone decisions",
-      reasoning: false, input: ["text"], contextWindow: 1_000_000, maxTokens: 256,
+    models: ["jev", "deepseek", "jev-auto", "skill", "startlux-instant", "startlux-autothink"].map((id) => ({
+      id, name: id === "startlux-instant" ? "Local StartLux 4B Instant" : id === "startlux-autothink" ? "Local StartLux 27B AutoThink" : id === "skill" ? "Recorded phone skill with verified steps" : id === "jev-auto" ? "Jev 优先，DeepSeek 兜底" : id === "jev" ? "Jev 1.14 phone decisions" : "DeepSeek V4.1 Flash phone decisions",
+      reasoning: false, input: ["text"], contextWindow: id.startsWith("startlux-") ? 8192 : 1_000_000, maxTokens: 256,
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     })),
     streamSimple(model: Model<Api>, context: TranscriptContext, options?: SimpleStreamOptions) {
@@ -233,7 +233,7 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: { terminalText:
         try {
           if (failed) throw new Error("Phone trial already failed");
           if (options?.signal?.aborted) throw new Error("Aborted");
-          if (model.id !== "jev" && model.id !== "deepseek" && model.id !== "jev-auto" && model.id !== "skill") throw new Error("Unsupported phone model");
+          if (!["jev", "deepseek", "jev-auto", "skill", "startlux-instant", "startlux-autothink"].includes(model.id)) throw new Error("Unsupported phone model");
           const child = worker(model.id, options?.env);
           const abort = () => child.kill();
           options?.signal?.addEventListener("abort", abort, { once: true });
