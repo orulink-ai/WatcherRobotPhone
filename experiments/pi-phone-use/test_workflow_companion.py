@@ -294,9 +294,20 @@ def test_publish_only_after_verified_execution_and_failed_publish_is_not_success
     assert result["status"] == "failed" and result["summary"]["errorCode"] == "PUBLISH_FAILED"
 
 
-@pytest.mark.parametrize("back_count", [0, 4, 5])
+@pytest.mark.parametrize(
+    "back_count,raw_mode,fault",
+    [
+        (0, "strict", "none"),
+        (4, "strict", "none"),
+        (5, "strict", "none"),
+        (5, "semantic", "none"),
+        (5, "semantic-recorded-submit", "none"),
+        (5, "semantic", "jev"),
+        (5, "semantic", "both"),
+    ],
+)
 def test_actual_new_runner_two_pi_loops_consume_raw_compile_and_replay(
-    tmp_path, monkeypatch, back_count
+    tmp_path, monkeypatch, back_count, raw_mode, fault
 ):
     """Real PI, worker, policies and new runner; only base phone/model are fake."""
     import shutil
@@ -323,14 +334,20 @@ def test_actual_new_runner_two_pi_loops_consume_raw_compile_and_replay(
     profile_file.write_text(json.dumps(profile))
     verify_wrapper = tmp_path / "offline-verify.py"
     verify_wrapper.write_text("""import argparse,asyncio,os
+from providers import ProviderError
 from test_workflow_entry import install_transport_double
 from workflow_verification import DraftIntentRuntime,load_plan
 import worker
 install_transport_double()
 class Model:
     mode='warm';decisionStyle='heads'
-    def __init__(self,*a,**kw): pass
+    def __init__(self,*a,**kw): self.transition_calls=0
     async def decide(self,backend,state,options):
+        if state.get('runtimeTransition') and state['observation']['kind']=='search_input' and state['observation'].get('queryMatches'):
+            self.transition_calls+=1
+            limit={'none':0,'jev':1,'both':2}[os.environ['OFFLINE_TRANSITION_FAULT']]
+            if self.transition_calls<=limit:
+                raise ProviderError('offline',network={},latency_ms=0,exception_type='ConnectError',stage='tcp_connect')
         return {'choice':next((key for key in ('OPEN_APP','CLICK:terminal-back','NEXT','WAIT') if key in options)),'latencyMs':0,'usage':{},'cost':0}
     async def close(self): pass
 p=argparse.ArgumentParser();p.add_argument('--provider');p.add_argument('--trial-id');a=p.parse_args()
@@ -352,24 +369,73 @@ asyncio.run(worker.serve('jev-auto',a.trial_id,runtime_factory=lambda t:DraftInt
             PI_OFFLINE="1",
             PI_TELEMETRY="0",
             OFFLINE_BACKS=str(back_count),
+            OFFLINE_TRANSITION_FAULT=fault,
         )
         return command, env
 
     monkeypatch.setattr(workflow_runner, "phase_launch", launch)
     publisher = SkillPublisher(profile_file, skills_directory=tmp_path / "installed-skills")
+    request = claimed()
+    if raw_mode != "strict":
+        from test_workflow_semantic import semantic_raw, with_recorded_submit
+
+        request["job"]["recording"] = (
+            semantic_raw() if raw_mode == "semantic" else with_recorded_submit()
+        )
     result = Companion(
         Phone(),
         tmp_path / "jobs",
         worker_id="offline-unique",
         runner=partial(workflow_runner.run_pi, profile=profile),
         publisher=publisher,
-    ).process(claimed())
-    assert result["status"] == "succeeded"
+    ).process(request)
     job = tmp_path / "jobs/job-001"
+    if fault == "both":
+        assert (
+            result["status"] == "failed" and result["summary"]["errorCode"] == "VALIDATION_FAILED"
+        )
+        assert not (job / "bundle").exists()
+        verify = json.loads((job / "verify/result.json").read_text())
+        evidence = json.loads((job / "verify/recording.json").read_text())
+        assert verify["decisionPolicy"]["fallbackRequests"] == 1
+        assert [
+            step["rawEventSequence"]
+            for step in evidence["steps"]
+            if step.get("rawEventSequence") is not None
+        ] == [1, 4]
+        assert all(step["action"]["role"] not in {"like", "collect"} for step in evidence["steps"])
+        assert not any(
+            step.get("origin") == "runtime-required-transition" for step in evidence["steps"]
+        )
+        return
+    assert result["status"] == "succeeded"
     verify = json.loads((job / "verify/result.json").read_text())
     execute = json.loads((job / "execute/result.json").read_text())
     assert verify["piAgentLoop"] is execute["piAgentLoop"] is True
-    assert len(verify["decisionPolicy"]["attempts"]) == 9 + back_count
+    assert len(verify["decisionPolicy"]["attempts"]) == 9 + back_count + (fault == "jev")
+    if raw_mode != "strict":
+        from workflow_intents import evidence_matches_plan
+
+        plan = json.loads((job / "intent-plan.json").read_text())
+        evidence = json.loads((job / "verify/recording.json").read_text())
+        assert evidence_matches_plan(evidence, plan)
+        assert [
+            step["rawEventSequence"]
+            for step in evidence["steps"]
+            if step.get("rawEventSequence") is not None
+        ] == [item["eventSequence"] for item in plan["intents"]]
+        recipe = json.loads((job / "bundle/recipe.json").read_text())
+        assert recipe["rawIntentCount"] == (7 if raw_mode == "semantic" else 8)
+        assert recipe["runtimeTransitionCount"] == (1 if raw_mode == "semantic" else 0)
+        if fault == "jev":
+            assert verify["decisionPolicy"]["fallbackSuccesses"] == 1
+            transitions = [
+                step
+                for step in evidence["steps"]
+                if step.get("origin") == "runtime-required-transition"
+            ]
+            assert len(transitions) == 1 and transitions[0]["rawEventSequence"] is None
+            assert transitions[0]["betweenRawEvents"] == [4, 7]
     assert execute["decisionPolicy"]["recipeHits"] == 8
     assert execute["decisionPolicy"]["preparationRequests"] == back_count + 1
     assert execute["decisionPolicy"]["recoveryRequests"] == 0

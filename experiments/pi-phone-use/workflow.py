@@ -159,6 +159,25 @@ def compile_recording(recording, directory, *, entry_strategy=None):
         or recording.get("status") != "success"
     ):
         raise ValueError("A successful paired demonstration is required")
+    provenance = None
+    if recording.get("recordingValidation", {}).get("schemaVersion") == 2:
+        from workflow_intents import evidence_matches_plan, validate_plan
+
+        plan = validate_plan(recording.get("intentPlan"))
+        if not evidence_matches_plan(recording, plan):
+            raise ValueError("Semantic recording provenance is not verified")
+        provenance = {
+            "recordingValidation": copy.deepcopy(recording["recordingValidation"]),
+            "rawEventDispositions": copy.deepcopy(plan["rawEventDispositions"]),
+            "observationNotifications": copy.deepcopy(plan["observationNotifications"]),
+            "rawIntentCount": len(plan["intents"]),
+            "rawEventCount": len(plan["rawEventDispositions"]),
+            "runtimeTransitionCount": sum(
+                step.get("origin") == "runtime-required-transition"
+                and step.get("delivery") == "applied"
+                for step in recording["steps"]
+            ),
+        }
     task = recording.get("task", {})
     previous_observation = None
     for step in recording.get("steps", []):
@@ -205,6 +224,19 @@ def compile_recording(recording, directory, *, entry_strategy=None):
                 "selector": semantic_selector(step["action"], recording.get("task", {})),
                 "before": predicate(step["before"]),
                 "after": predicate(step["after"]),
+                **(
+                    {
+                        key: copy.deepcopy(step.get(key))
+                        for key in (
+                            "origin",
+                            "rawEventSequence",
+                            "rawEventSha256",
+                            "betweenRawEvents",
+                        )
+                    }
+                    if provenance is not None
+                    else {}
+                ),
             }
             for step in recording.get("steps", [])
             if step.get("delivery") != "not_dispatched"
@@ -213,8 +245,13 @@ def compile_recording(recording, directory, *, entry_strategy=None):
             step.get("delivery") == "not_dispatched" for step in recording.get("steps", [])
         ),
     }
+    if provenance is not None:
+        recipe.update(copy.deepcopy(provenance))
     if entry_strategy is not None:
-        if not recording.get("steps") or predicate(recording["steps"][0]["before"])["observation"].get("kind") != "feed":
+        if (
+            not recording.get("steps")
+            or predicate(recording["steps"][0]["before"])["observation"].get("kind") != "feed"
+        ):
             raise ValueError("Prepared entry requires an actual observed feed")
         recipe["entryStrategy"] = entry_strategy
     recipe["recipeSha256"] = recipe_digest(recipe)
@@ -254,6 +291,13 @@ def compile_recording(recording, directory, *, entry_strategy=None):
         "",
         "# 步骤",
     ]
+    if provenance is not None:
+        lines[lines.index("# 步骤") : lines.index("# 步骤")] = [
+            f"来源：{provenance['rawEventCount']} 条原始事件，{provenance['rawIntentCount']} 项原录制意图；"
+            f"{provenance['runtimeTransitionCount']} 个实际验证的必要搜索过渡，不宣称该过渡在原始录制中。",
+            "聚焦证据和 RecyclerView 通知完整保留；不声明重放通知对应的滚动手势。",
+            "",
+        ]
     for index, step in enumerate(recipe["steps"], 1):
         lines.append(
             f"{index}. {step['selector']['method']}：{step['selector']['label']}；验证阶段 {step['after']['stage']}。"
@@ -279,6 +323,8 @@ def compile_recording(recording, directory, *, entry_strategy=None):
         "sourceSha256": recipe["sourceSha256"],
         "modelCalls": 0,
     }
+    if provenance is not None:
+        generation.update(copy.deepcopy(provenance))
     _new_bundle(
         directory,
         {"recipe.json": recipe, "SKILL.md": "\n".join(lines), "generation.json": generation},

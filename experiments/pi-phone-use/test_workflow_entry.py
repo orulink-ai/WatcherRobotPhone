@@ -89,6 +89,7 @@ def test_runtime_preparation_masks_task_controls_and_never_advances_common_progr
 ):
     from controller import PhoneRuntime, Progress
     from terminal_runtime import TerminalRecordedRuntime
+    from providers import _context, _jev_payload
 
     frames = ["launcher", "detail", "results", "search_input", "search_input", "transition", "feed"]
 
@@ -145,6 +146,11 @@ def test_runtime_preparation_masks_task_controls_and_never_advances_common_progr
                 for action in runtime.actions.values()
             )
             assert value["state"]["recipeEntryReady"] is False
+            payload = _jev_payload(
+                _context(value["state"], value["options"], True), value["options"], True, "heads"
+            )
+            assert "允许的准备导航" in payload["state"]["goal"]
+            assert payload["state"]["goal"] == payload["state"]["nextGoal"]
 
 
 def install_transport_double():

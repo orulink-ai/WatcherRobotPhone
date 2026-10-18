@@ -18,12 +18,17 @@ from types import SimpleNamespace
 
 from config import output_dir
 from controller import (
-    PACKAGE, PhoneRuntime, Progress, private_write, prune_controls, screen_dimensions, search_value,
+    PACKAGE, PHASE_GOALS, PhoneRuntime, Progress, private_write, prune_controls,
+    screen_dimensions, search_value,
 )
 from own_mcp import McpError, OwnMcp, content_text, own_nodes
 from window_state import focused_package
 
 BACK = "CLICK:terminal-back"
+PREPARATION_GOAL = (
+    "先打开小红书，或从当前页面返回到小红书首页的搜索入口。"
+    "这些是允许的准备导航；本阶段不点赞、不收藏。到首页后再执行录制的搜索意图。"
+)
 
 
 class TerminalRuntimeError(RuntimeError):
@@ -471,9 +476,12 @@ class TerminalRecordedRuntime(PhoneRuntime):
             # evidence that this invocation has performed its recorded search.
             self.progress = Progress()
             state["stage"], snapshot["done"] = "search", False
-            state["nextGoal"] = "通过打开应用或返回，先到小红书首页，再执行录制的搜索意图。"
             self._entry_prepared = (state["focusedPackage"] == PACKAGE and state["observation"]["kind"] == "feed")
+            state["nextGoal"] = (
+                PHASE_GOALS["search"] if self._entry_prepared else PREPARATION_GOAL
+            )
             if not self._entry_prepared:
+                state["goal"] = PREPARATION_GOAL
                 self.actions = {key: action for key, action in self.actions.items()
                                 if action["method"] in {"open", "back", "wait", "blocked"}}
                 if state["focusedPackage"] == PACKAGE:
