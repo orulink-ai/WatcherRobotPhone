@@ -21,9 +21,11 @@ flowchart LR
 
 ## 已展示的能力
 
+现场视频：[京东创造营现场｜让 AI 操作真实手机](https://www.xiaohongshu.com/discovery/item/6ad3c336000000001402ebd7?source=webshare&xhsshare=pc_web&xsec_token=ABBoFwwcmUXezu3hfE3BT0LQlge7vTDLIcNUBMpKQxugQ=&xsec_source=pc_share)。
+
 - **机器人语音操作美团**：提出晚饭、汉堡需求后，手机执行商家搜索、选购和订单流程；演示显示“支付成功”。用户随后语音要求取消，最终显示“订单已取消”。实机演示已上传一版至飞书问卷，支付确认方式未完整拍出。
 - **手机示教到 Skill**：在 Orulink Control 录制并提交，电脑完成 PI 验证、生成、复用与安装，再回报手机结果。[实机闭环记录](docs/research/app-workflow-loop.md)。
-- **固定流程复用**：小红书同一任务的 Jev 与 Skill 模式各3轮均成功；中位全程从22.537秒降至15.594秒，减少30.8%，每轮模型调用14→0。结果仅覆盖该固定任务、版本和小样本。[对照实验](docs/results/phone-record-replay-20261018.md)。
+- **固定流程复用**：小红书同一任务的 Jev 与 Skill 模式各3轮均成功；中位全程从22.537秒降至15.594秒，减少30.8%，每轮模型调用14→0。结果仅覆盖该固定任务、版本和小样本。[对照实验](docs/results/phone-record-replay-20261018.md) · [小红书视频：录一遍手机操作，让 AI 照着完成整套流程](https://www.xiaohongshu.com/discovery/item/6ad3cbb0000000000202bff4?source=webshare&xhsshare=pc_web&xsec_token=ABBoFwwcmUXezu3hfE3BT0LfZssYEaD_U-VYZ149DwzNo=&xsec_source=pc_share)。
 - **参数化任务**：已实测更换搜索词后只收藏、按精确标题取消收藏，点赞保持不变；该模式仍由模型逐步判断。[经验辅助与验收](docs/research/phone-experience.md)。
 
 美团演示由团队确认完成；它与仓库中的小红书测速分别留证，不能混用任务耗时或模型配置。最终冻结版本仍在修改，当前 main 不自动代表最终提交版。
