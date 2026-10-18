@@ -1,0 +1,126 @@
+{"id": "email-obfuscated-01", "group": "email-obfuscated", "text": "Contact me at j.doe [at] example [dot] com", "gold": [{"start": 14, "end": 42, "category": "EMAILS"}]}
+{"id": "email-obfuscated-02", "group": "email-obfuscated", "text": "jane(at)mail(dot)org is my address", "gold": [{"start": 0, "end": 20, "category": "EMAILS"}]}
+{"id": "email-obfuscated-03", "group": "email-obfuscated", "text": "Write to bob AT company DOT com", "gold": [{"start": 9, "end": 31, "category": "EMAILS"}]}
+{"id": "email-obfuscated-04", "group": "email-obfuscated", "text": "Email: alice @ example . com", "gold": [{"start": 7, "end": 28, "category": "EMAILS"}]}
+{"id": "email-obfuscated-05", "group": "email-obfuscated", "text": "mike [at] test [dot] net", "gold": [{"start": 0, "end": 24, "category": "EMAILS"}]}
+{"id": "email-obfuscated-06", "group": "email-obfuscated", "text": "Reach us via support (at) service (dot) io", "gold": [{"start": 13, "end": 42, "category": "EMAILS"}]}
+{"id": "email-obfuscated-07", "group": "email-obfuscated", "text": "l.brown at example dot com for enquiries", "gold": [{"start": 0, "end": 26, "category": "EMAILS"}]}
+{"id": "email-obfuscated-08", "group": "email-obfuscated", "text": "Ping sam[at]dev[dot]org", "gold": [{"start": 5, "end": 23, "category": "EMAILS"}]}
+{"id": "email-obfuscated-09", "group": "email-obfuscated", "text": "Mail kate AT web DOT co DOT uk", "gold": [{"start": 5, "end": 30, "category": "EMAILS"}]}
+{"id": "email-obfuscated-10", "group": "email-obfuscated", "text": "info (at) shop . com", "gold": [{"start": 0, "end": 20, "category": "EMAILS"}]}
+{"id": "email-exotic-01", "group": "email-exotic", "text": "user+newsletter@example.com", "gold": [{"start": 0, "end": 27, "category": "EMAILS"}]}
+{"id": "email-exotic-02", "group": "email-exotic", "text": "\"john smith\"@example.org signed up", "gold": [{"start": 0, "end": 24, "category": "EMAILS"}]}
+{"id": "email-exotic-03", "group": "email-exotic", "text": "Kontakt: info@münchen-shop.de", "language": "de", "gold": [{"start": 9, "end": 29, "category": "EMAILS"}]}
+{"id": "email-exotic-04", "group": "email-exotic", "text": "hello@startup.technology", "gold": [{"start": 0, "end": 24, "category": "EMAILS"}]}
+{"id": "email-exotic-05", "group": "email-exotic", "text": "Reply to ADMIN@EXAMPLE.COM", "gold": [{"start": 9, "end": 26, "category": "EMAILS"}]}
+{"id": "email-exotic-06", "group": "email-exotic", "text": "Send to dev+ci+alerts@build.example.net", "gold": [{"start": 8, "end": 39, "category": "EMAILS"}]}
+{"id": "email-exotic-07", "group": "email-exotic", "text": "o'brien@example.ie replied", "gold": [{"start": 0, "end": 18, "category": "EMAILS"}]}
+{"id": "email-exotic-08", "group": "email-exotic", "text": "x@sub.domain.example.museum", "gold": [{"start": 0, "end": 27, "category": "EMAILS"}]}
+{"id": "card-formats-01", "group": "card-formats", "text": "4111 1111 1111 1111", "labelText": "Card number", "gold": [{"start": 0, "end": 19, "category": "CARDS_AND_IBAN"}]}
+{"id": "card-formats-02", "group": "card-formats", "text": "5555-5555-5555-4444", "labelText": "Card number", "gold": [{"start": 0, "end": 19, "category": "CARDS_AND_IBAN"}]}
+{"id": "card-formats-03", "group": "card-formats", "text": "378282246310005", "labelText": "Card number", "gold": [{"start": 0, "end": 15, "category": "CARDS_AND_IBAN"}]}
+{"id": "card-formats-04", "group": "card-formats", "text": "6011111111111117", "labelText": "Card number", "gold": [{"start": 0, "end": 16, "category": "CARDS_AND_IBAN"}]}
+{"id": "card-formats-05", "group": "card-formats", "text": "3782 822463 10005", "labelText": "Card number", "gold": [{"start": 0, "end": 17, "category": "CARDS_AND_IBAN"}]}
+{"id": "card-formats-06", "group": "card-formats", "text": "6799990100000000019", "labelText": "Card number", "gold": [{"start": 0, "end": 19, "category": "CARDS_AND_IBAN"}]}
+{"id": "card-formats-07", "group": "card-formats", "text": "The payment used card 4012888888881881 yesterday", "gold": [{"start": 22, "end": 38, "category": "CARDS_AND_IBAN"}]}
+{"id": "card-formats-08", "group": "card-formats", "text": "5105 1051 0510 5100", "gold": [{"start": 0, "end": 19, "category": "CARDS_AND_IBAN"}]}
+{"id": "card-formats-09", "group": "card-formats", "text": "371449635398431", "gold": [{"start": 0, "end": 15, "category": "CARDS_AND_IBAN"}]}
+{"id": "card-formats-10", "group": "card-formats", "text": "3056 9309 0259 04", "gold": [{"start": 0, "end": 17, "category": "CARDS_AND_IBAN"}]}
+{"id": "card-formats-11", "group": "card-formats", "text": "6759 6498 2643 8453", "gold": [{"start": 0, "end": 19, "category": "CARDS_AND_IBAN"}]}
+{"id": "card-formats-12", "group": "card-formats", "text": "The payment used card 5019717010103742 yesterday", "gold": [{"start": 22, "end": 38, "category": "CARDS_AND_IBAN"}]}
+{"id": "card-partial-01", "group": "card-partial", "text": "Card ending 1111", "gold": [{"start": 12, "end": 16, "category": "CARDS_AND_IBAN"}]}
+{"id": "card-partial-02", "group": "card-partial", "text": "last four 6789", "gold": [{"start": 10, "end": 14, "category": "CARDS_AND_IBAN"}]}
+{"id": "card-partial-03", "group": "card-partial", "text": "Visa ending in 4242", "gold": [{"start": 15, "end": 19, "category": "CARDS_AND_IBAN"}]}
+{"id": "card-partial-04", "group": "card-partial", "text": "card •••• 9424", "gold": [{"start": 10, "end": 14, "category": "CARDS_AND_IBAN"}]}
+{"id": "card-partial-05", "group": "card-partial", "text": "Number ending 0005 was charged", "gold": [{"start": 14, "end": 18, "category": "CARDS_AND_IBAN"}]}
+{"id": "card-partial-06", "group": "card-partial", "text": "Mastercard **** 4444", "gold": [{"start": 16, "end": 20, "category": "CARDS_AND_IBAN"}]}
+{"id": "iban-variants-01", "group": "iban-variants", "text": "DE89370400440532013000", "labelText": "IBAN", "gold": [{"start": 0, "end": 22, "category": "CARDS_AND_IBAN"}]}
+{"id": "iban-variants-02", "group": "iban-variants", "text": "de89370400440532013000", "gold": [{"start": 0, "end": 22, "category": "CARDS_AND_IBAN"}]}
+{"id": "iban-variants-03", "group": "iban-variants", "text": "DE89 3704 0044 0532 0130 00", "labelText": "IBAN", "gold": [{"start": 0, "end": 27, "category": "CARDS_AND_IBAN"}]}
+{"id": "iban-variants-04", "group": "iban-variants", "text": "Transfer to GB29NWBK60161331926819 by Friday", "gold": [{"start": 12, "end": 34, "category": "CARDS_AND_IBAN"}]}
+{"id": "iban-variants-05", "group": "iban-variants", "text": "FR1420041010050500013M02606", "gold": [{"start": 0, "end": 27, "category": "CARDS_AND_IBAN"}]}
+{"id": "iban-variants-06", "group": "iban-variants", "text": "Cuenta: ES91 2100 0418 4502 0005 1332", "language": "es", "gold": [{"start": 8, "end": 37, "category": "CARDS_AND_IBAN"}]}
+{"id": "iban-variants-07", "group": "iban-variants", "text": "Bonifico su IT60X0542811101000000123456", "language": "it", "gold": [{"start": 12, "end": 39, "category": "CARDS_AND_IBAN"}]}
+{"id": "iban-variants-08", "group": "iban-variants", "text": "NL91ABNA0417164300", "labelText": "Rekening", "gold": [{"start": 0, "end": 18, "category": "CARDS_AND_IBAN"}]}
+{"id": "phone-variants-01", "group": "phone-variants", "text": "Call me on +1 650-253-0000 tomorrow", "gold": [{"start": 11, "end": 26, "category": "PHONE_NUMBERS"}]}
+{"id": "phone-variants-02", "group": "phone-variants", "text": "(212) 555-0142", "labelText": "Phone", "gold": [{"start": 0, "end": 14, "category": "PHONE_NUMBERS"}]}
+{"id": "phone-variants-03", "group": "phone-variants", "text": "Call 212.555.0175 ext. 45", "gold": [{"start": 5, "end": 17, "category": "PHONE_NUMBERS"}]}
+{"id": "phone-variants-04", "group": "phone-variants", "text": "+44 20 7946 0958", "labelText": "Phone", "gold": [{"start": 0, "end": 16, "category": "PHONE_NUMBERS"}]}
+{"id": "phone-variants-05", "group": "phone-variants", "text": "+33 6 12 34 56 78", "language": "fr", "gold": [{"start": 0, "end": 17, "category": "PHONE_NUMBERS"}]}
+{"id": "phone-variants-06", "group": "phone-variants", "text": "+49 30 901820", "language": "de", "labelText": "Phone", "gold": [{"start": 0, "end": 13, "category": "PHONE_NUMBERS"}]}
+{"id": "phone-variants-07", "group": "phone-variants", "text": "+34 612 345 678", "language": "es", "gold": [{"start": 0, "end": 15, "category": "PHONE_NUMBERS"}]}
+{"id": "phone-variants-08", "group": "phone-variants", "text": "+39 06 6982 1234", "language": "it", "labelText": "Phone", "gold": [{"start": 0, "end": 16, "category": "PHONE_NUMBERS"}]}
+{"id": "phone-variants-09", "group": "phone-variants", "text": "+31 20 624 1111", "language": "nl", "gold": [{"start": 0, "end": 15, "category": "PHONE_NUMBERS"}]}
+{"id": "phone-variants-10", "group": "phone-variants", "text": "+91 98765 43210", "language": "hi", "labelText": "Phone", "gold": [{"start": 0, "end": 15, "category": "PHONE_NUMBERS"}]}
+{"id": "phone-variants-11", "group": "phone-variants", "text": "+91 40 2345 6789", "language": "te", "gold": [{"start": 0, "end": 16, "category": "PHONE_NUMBERS"}]}
+{"id": "phone-variants-12", "group": "phone-variants", "text": "800-555-0199", "labelText": "Phone", "gold": [{"start": 0, "end": 12, "category": "PHONE_NUMBERS"}]}
+{"id": "national-id-context-01", "group": "national-id-context", "text": "536-90-4399", "labelText": "SSN", "gold": [{"start": 0, "end": 11, "category": "NATIONAL_IDS"}]}
+{"id": "national-id-context-02", "group": "national-id-context", "text": "078-05-1120", "labelText": "Social security number", "gold": [{"start": 0, "end": 11, "category": "NATIONAL_IDS"}]}
+{"id": "national-id-context-03", "group": "national-id-context", "text": "12345678Z", "language": "es", "labelText": "DNI", "gold": [{"start": 0, "end": 9, "category": "NATIONAL_IDS"}]}
+{"id": "national-id-context-04", "group": "national-id-context", "text": "111222333", "language": "nl", "labelText": "BSN", "gold": [{"start": 0, "end": 9, "category": "NATIONAL_IDS"}]}
+{"id": "national-id-context-05", "group": "national-id-context", "text": "RSSMRA85T10A562S", "language": "it", "labelText": "Codice fiscale", "gold": [{"start": 0, "end": 16, "category": "NATIONAL_IDS"}]}
+{"id": "national-id-context-06", "group": "national-id-context", "text": "AB1234567", "labelText": "Passport number", "gold": [{"start": 0, "end": 9, "category": "NATIONAL_IDS"}]}
+{"id": "national-id-context-07", "group": "national-id-context", "text": "12 345 678 901", "language": "de", "labelText": "Tax ID", "gold": [{"start": 0, "end": 14, "category": "NATIONAL_IDS"}]}
+{"id": "national-id-context-08", "group": "national-id-context", "text": "D12345678", "labelText": "Driver licence", "gold": [{"start": 0, "end": 9, "category": "NATIONAL_IDS"}]}
+{"id": "national-id-bare-01", "group": "national-id-bare", "text": "536-90-4399", "gold": [{"start": 0, "end": 11, "category": "NATIONAL_IDS"}]}
+{"id": "national-id-bare-02", "group": "national-id-bare", "text": "12345678Z", "language": "es", "gold": [{"start": 0, "end": 9, "category": "NATIONAL_IDS"}]}
+{"id": "national-id-bare-03", "group": "national-id-bare", "text": "111222333", "language": "nl", "gold": [{"start": 0, "end": 9, "category": "NATIONAL_IDS"}]}
+{"id": "national-id-bare-04", "group": "national-id-bare", "text": "RSSMRA85T10A562S", "language": "it", "gold": [{"start": 0, "end": 16, "category": "NATIONAL_IDS"}]}
+{"id": "national-id-bare-05", "group": "national-id-bare", "text": "AB1234567", "gold": [{"start": 0, "end": 9, "category": "NATIONAL_IDS"}]}
+{"id": "national-id-bare-06", "group": "national-id-bare", "text": "078-05-1120", "gold": [{"start": 0, "end": 11, "category": "NATIONAL_IDS"}]}
+{"id": "credential-plaintext-01", "group": "credential-plaintext", "text": "my password is hunter2", "gold": [{"start": 15, "end": 22, "category": "CREDENTIALS"}]}
+{"id": "credential-plaintext-02", "group": "credential-plaintext", "text": "sk-live-abc123def456ghi789jkl012", "gold": [{"start": 0, "end": 32, "category": "CREDENTIALS"}]}
+{"id": "credential-plaintext-03", "group": "credential-plaintext", "text": "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.dQw4w9WgXcQ", "gold": [{"start": 22, "end": 73, "category": "CREDENTIALS"}]}
+{"id": "credential-plaintext-04", "group": "credential-plaintext", "text": "Use ghp_16C7e42F292c6912E7710c838347Ae178B4a for the API", "gold": [{"start": 4, "end": 44, "category": "CREDENTIALS"}]}
+{"id": "credential-plaintext-05", "group": "credential-plaintext", "text": "Key: AKIAIOSFODNN7EXAMPLE", "gold": [{"start": 5, "end": 25, "category": "CREDENTIALS"}]}
+{"id": "credential-plaintext-06", "group": "credential-plaintext", "text": "token=secret_live_key_9f8e7d6c", "gold": [{"start": 6, "end": 30, "category": "CREDENTIALS"}]}
+{"id": "credential-plaintext-07", "group": "credential-plaintext", "text": "The api key is 9d8f7a6s5d4f3g2h1j", "gold": [{"start": 15, "end": 33, "category": "CREDENTIALS"}]}
+{"id": "credential-plaintext-08", "group": "credential-plaintext", "text": "PIN is 4321", "gold": [{"start": 7, "end": 11, "category": "CREDENTIALS"}]}
+{"id": "credential-plaintext-09", "group": "credential-plaintext", "text": "OTP: 991224", "gold": [{"start": 5, "end": 11, "category": "CREDENTIALS"}]}
+{"id": "credential-plaintext-10", "group": "credential-plaintext", "text": "passphrase correct horse battery staple", "gold": [{"start": 11, "end": 39, "category": "CREDENTIALS"}]}
+{"id": "name-unicode-01", "group": "name-unicode", "text": "Meeting with José García at noon", "gold": [{"start": 13, "end": 24, "category": "NAMES"}]}
+{"id": "name-unicode-02", "group": "name-unicode", "text": "Jürgen Müller hat angerufen", "language": "de", "gold": [{"start": 0, "end": 13, "category": "NAMES"}]}
+{"id": "name-unicode-03", "group": "name-unicode", "text": "Message from Ayşe Çelik", "gold": [{"start": 13, "end": 23, "category": "NAMES"}]}
+{"id": "name-unicode-04", "group": "name-unicode", "text": "François Lefèvre a confirmé", "language": "fr", "gold": [{"start": 0, "end": 16, "category": "NAMES"}]}
+{"id": "name-unicode-05", "group": "name-unicode", "text": "अमित शर्मा ने कॉल किया", "language": "hi", "gold": [{"start": 0, "end": 10, "category": "NAMES"}]}
+{"id": "name-unicode-06", "group": "name-unicode", "text": "రాజు రెడ్డి వచ్చారు", "language": "te", "gold": [{"start": 0, "end": 11, "category": "NAMES"}]}
+{"id": "name-unicode-07", "group": "name-unicode", "text": "Call 田中太郎 today", "gold": [{"start": 5, "end": 9, "category": "NAMES"}]}
+{"id": "name-unicode-08", "group": "name-unicode", "text": "Zoë O'Connor replied", "gold": [{"start": 0, "end": 12, "category": "NAMES"}]}
+{"id": "name-unicode-09", "group": "name-unicode", "text": "Invite Anne-Marie Dubois", "language": "fr", "gold": [{"start": 7, "end": 24, "category": "NAMES"}]}
+{"id": "name-unicode-10", "group": "name-unicode", "text": "Søren Kierkegaard-Jensen wrote back", "gold": [{"start": 0, "end": 24, "category": "NAMES"}]}
+{"id": "name-hard-01", "group": "name-hard", "text": "please tell john smith to call back", "gold": [{"start": 12, "end": 22, "category": "NAMES"}]}
+{"id": "name-hard-02", "group": "name-hard", "text": "bill gates founded the company", "gold": [{"start": 0, "end": 10, "category": "NAMES"}]}
+{"id": "name-hard-03", "group": "name-hard", "text": "J. R. R. Tolkien wrote it", "gold": [{"start": 0, "end": 16, "category": "NAMES"}]}
+{"id": "name-hard-04", "group": "name-hard", "text": "meeting with rose at noon", "gold": [{"start": 13, "end": 17, "category": "NAMES"}]}
+{"id": "name-hard-05", "group": "name-hard", "text": "drew and sunny arrived early", "gold": [{"start": 0, "end": 4, "category": "NAMES"}, {"start": 9, "end": 14, "category": "NAMES"}]}
+{"id": "name-hard-06", "group": "name-hard", "text": "mr. smith called twice", "gold": [{"start": 4, "end": 9, "category": "NAMES"}]}
+{"id": "address-freetext-01", "group": "address-freetext", "text": "She lives at 742 Evergreen Terrace, 90210 Springfield", "gold": [{"start": 13, "end": 53, "category": "ADDRESSES"}]}
+{"id": "address-freetext-02", "group": "address-freetext", "text": "Er wohnt in der Hauptstraße 5, 80331 München", "language": "de", "gold": [{"start": 16, "end": 44, "category": "ADDRESSES"}]}
+{"id": "address-freetext-03", "group": "address-freetext", "text": "Livraison au 12 Rue de la Paix, 75002 Paris", "language": "fr", "gold": [{"start": 13, "end": 43, "category": "ADDRESSES"}]}
+{"id": "address-freetext-04", "group": "address-freetext", "text": "Envío a Calle Mayor 8, 28013 Madrid", "language": "es", "gold": [{"start": 8, "end": 35, "category": "ADDRESSES"}]}
+{"id": "address-freetext-05", "group": "address-freetext", "text": "Spedire in Via Roma 15, 10121 Torino", "language": "it", "gold": [{"start": 11, "end": 36, "category": "ADDRESSES"}]}
+{"id": "address-freetext-06", "group": "address-freetext", "text": "Bezorgen op Kerkstraat 22, 1017 GA Amsterdam", "language": "nl", "gold": [{"start": 12, "end": 44, "category": "ADDRESSES"}]}
+{"id": "address-freetext-07", "group": "address-freetext", "text": "Ship to 221B Baker Street, London NW1 6XE please", "gold": [{"start": 8, "end": 41, "category": "ADDRESSES"}]}
+{"id": "address-freetext-08", "group": "address-freetext", "text": "Office: MG Road 45, 560001 Bengaluru", "language": "hi", "gold": [{"start": 8, "end": 36, "category": "ADDRESSES"}]}
+{"id": "mixed-language-01", "group": "mixed-language", "text": "Call María López on +34 612 345 678", "gold": [{"start": 5, "end": 16, "category": "NAMES"}, {"start": 20, "end": 35, "category": "PHONE_NUMBERS"}]}
+{"id": "mixed-language-02", "group": "mixed-language", "text": "Schreib an anna.weber@example.de, elle habite à Lyon", "gold": [{"start": 11, "end": 32, "category": "EMAILS"}, {"start": 48, "end": 52, "category": "ADDRESSES"}]}
+{"id": "mixed-language-03", "group": "mixed-language", "text": "Pierre Dubois emailed pierre@exemple.fr yesterday", "gold": [{"start": 0, "end": 13, "category": "NAMES"}, {"start": 22, "end": 39, "category": "EMAILS"}]}
+{"id": "mixed-language-04", "group": "mixed-language", "text": "Bel Daan de Vries op +31 20 624 1111 please", "gold": [{"start": 4, "end": 17, "category": "NAMES"}, {"start": 21, "end": 36, "category": "PHONE_NUMBERS"}]}
+{"id": "mixed-language-05", "group": "mixed-language", "text": "अमित sent mail to amit.sharma@example.in", "language": "hi", "gold": [{"start": 0, "end": 4, "category": "NAMES"}, {"start": 18, "end": 40, "category": "EMAILS"}]}
+{"id": "mixed-language-06", "group": "mixed-language", "text": "Meet Giulia Ricci in Via Garibaldi 3, 37121 Verona", "gold": [{"start": 5, "end": 17, "category": "NAMES"}, {"start": 21, "end": 50, "category": "ADDRESSES"}]}
+{"id": "lookalike-negatives-01", "group": "lookalike-negatives", "text": "Order #4820134857"}
+{"id": "lookalike-negatives-02", "group": "lookalike-negatives", "text": "Tracking 1Z999AA1012345678"}
+{"id": "lookalike-negatives-03", "group": "lookalike-negatives", "text": "INV-2024-00318 due Friday"}
+{"id": "lookalike-negatives-04", "group": "lookalike-negatives", "text": "f47ac10b-58cc-4372-a567-0e02b2c3d479"}
+{"id": "lookalike-negatives-05", "group": "lookalike-negatives", "text": "MAC 00:1B:44:11:3A:B7"}
+{"id": "lookalike-negatives-06", "group": "lookalike-negatives", "text": "ISBN 978-3-16-148410-0"}
+{"id": "lookalike-negatives-07", "group": "lookalike-negatives", "text": "v2.14.3 build 8812"}
+{"id": "lookalike-negatives-08", "group": "lookalike-negatives", "text": "2026-08-03T14:22:05Z"}
+{"id": "lookalike-negatives-09", "group": "lookalike-negatives", "text": "Total: € 1,299.00"}
+{"id": "lookalike-negatives-10", "group": "lookalike-negatives", "text": "40.7128° N, 74.0060° W"}
+{"id": "lookalike-negatives-11", "group": "lookalike-negatives", "text": "Flight LH2047 gate B12"}
+{"id": "lookalike-negatives-12", "group": "lookalike-negatives", "text": "Ticket #88213 resolved"}
+{"id": "lookalike-negatives-13", "group": "lookalike-negatives", "text": "490154203237518", "labelText": "IMEI"}
+{"id": "lookalike-negatives-14", "group": "lookalike-negatives", "text": "Room 1204, Building C"}
+{"id": "lookalike-negatives-15", "group": "lookalike-negatives", "text": "Batch LOT-2024-0917"}
+{"id": "lookalike-negatives-16", "group": "lookalike-negatives", "text": "Serial SN-83921-A4", "labelText": "Serial number"}

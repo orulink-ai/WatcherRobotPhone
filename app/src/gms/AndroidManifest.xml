@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Geofencing (gms flavor only): background location + the transition broadcast receiver. -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+    <!-- Battery-optimization exemption (gms flavor only): F-Droid flags this permission, so it is
+         declared only in the gms flavor; foss opens the settings list without it. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <application>
+        <receiver
+            android:name=".services.channel.geofence.GeofenceTransitionReceiver"
+            android:exported="false" />
+    </application>
+</manifest>
