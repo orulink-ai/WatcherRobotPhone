@@ -78,6 +78,7 @@ See [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md) for the full tool reference with inpu
 - Remote access tunnel configuration (Cloudflare / ngrok)
 - Storage location management (automatic locations + SAF authorization for file tools)
 - Server log viewer (MCP tool calls, tunnel events)
+- On-device control feedback: configurable blue, multicolor, or custom edge lights with independent motion, a translucent draggable bottom bar with **Take over** / **End task**, and a pointer with action labels driven by real gestures. Taking over pauses remote actions; **Return to AI** resumes after any in-flight gesture finishes. Pointer feedback clears on handover, cancellation, and task completion. See [control overlay design](docs/CONTROL_OVERLAY_DESIGN.md) for rendering behavior and the ego-lite reference.
 - Headless setup via ADB (configure, grant permissions, start/stop server without UI)
 - Record Xiaohongshu accessibility events, pause, review and export a local workflow draft
 

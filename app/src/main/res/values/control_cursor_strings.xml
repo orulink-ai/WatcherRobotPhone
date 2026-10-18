@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="control_cursor_click">Clicking element</string>
+    <string name="control_cursor_long_press">Pressing element</string>
+    <string name="control_cursor_swipe">Swiping</string>
+    <string name="control_cursor_scroll">Scrolling</string>
+    <string name="control_cursor_type">Entering text</string>
+</resources>

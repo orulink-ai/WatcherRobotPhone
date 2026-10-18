@@ -18,6 +18,7 @@ data class ControlSessionState(
     val lastTool: String? = null,
     val isPaused: Boolean = false,
     val revision: Long = 0,
+    val isTakenOver: Boolean = false,
 ) {
     val isActive: Boolean get() = activeTool != null
 }
@@ -54,22 +55,37 @@ class ControlSession
                 }
             }
 
-        fun pause() {
+        fun pause() = pauseTools(takenOver = false)
+
+        /** Transfers ownership without briefly reopening a session that was already paused. */
+        fun takeOver() = pauseTools(takenOver = true)
+
+        private fun pauseTools(takenOver: Boolean) {
             val interrupted =
                 synchronized(lock) {
-                    if (_state.value.isPaused) return
+                    val previous = _state.value
+                    // A later generic pause must not revoke explicit local ownership.
+                    if (previous.isPaused && (!takenOver || previous.isTakenOver)) return
                     drainActiveTools().also {
                         _state.value =
-                            _state.value.copy(activeTool = null, isPaused = true, revision = _state.value.revision + 1)
+                            previous.copy(
+                                activeTool = null,
+                                isPaused = true,
+                                isTakenOver = previous.isTakenOver || takenOver,
+                                revision = previous.revision + 1,
+                            )
                     }
                 }
-            interrupted.forEach { it.cancel(ControlInterruptionException("Control paused by the device user.")) }
+            val reason =
+                if (takenOver) "Control taken over by the device user." else "Control paused by the device user."
+            interrupted.forEach { it.cancel(ControlInterruptionException(reason)) }
         }
 
         fun resume() {
             synchronized(lock) {
                 if (!_state.value.isPaused) return
-                _state.value = _state.value.copy(isPaused = false, revision = _state.value.revision + 1)
+                _state.value =
+                    _state.value.copy(isPaused = false, isTakenOver = false, revision = _state.value.revision + 1)
             }
         }
 

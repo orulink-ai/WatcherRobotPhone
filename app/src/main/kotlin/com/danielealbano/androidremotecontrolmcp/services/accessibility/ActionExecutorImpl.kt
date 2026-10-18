@@ -906,7 +906,7 @@ class ActionExecutorImpl
                                     }
 
                                     override fun onCancelled(gestureDescription: GestureDescription?) {
-                                        service.finishGestureFeedback(feedbackToken)
+                                        service.finishGestureFeedback(feedbackToken, cancelled = true)
                                         Log.w(TAG, "Gesture cancelled: $description")
                                         if (continuation.isActive) {
                                             continuation.resume(
@@ -919,9 +919,9 @@ class ActionExecutorImpl
                                 }
 
                             dispatched = service.dispatchGesture(gesture, callback, null)
-                            if (dispatched) service.showGestureFeedback(gesture)
+                            if (dispatched) service.showGestureFeedback(feedbackToken, gesture)
                             if (!dispatched) {
-                                service.finishGestureFeedback(feedbackToken)
+                                service.finishGestureFeedback(feedbackToken, cancelled = true)
                                 Log.e(TAG, "Failed to dispatch gesture: $description")
                                 if (continuation.isActive) {
                                     continuation.resume(
@@ -939,7 +939,9 @@ class ActionExecutorImpl
                         )
                     }
                 } finally {
-                    if (!dispatched) service.finishGestureFeedback(feedbackToken)
+                    // A dispatched platform gesture can outlive timeout/cancellation of this coroutine.
+                    // The callback or overlay deadline releases its panel avoidance and feedback.
+                    if (!dispatched) service.finishGestureFeedback(feedbackToken, cancelled = true)
                 }
             }
 
