@@ -1,0 +1,99 @@
+{
+  "scope_end": "2026-10-18T19:47:52+08:00",
+  "provenance": "source files held in original experiments; hashes bind the copies read during archival; source files are not bundled",
+  "sources": [
+    {
+      "id": "machine_snapshot",
+      "filename": "snapshot.json",
+      "bytes": 6131,
+      "sha256": "8f12d0c33ac693f37a31d113bd81046fb632a2b10b8a89be5ca589351480ea8a"
+    },
+    {
+      "id": "qwen_local_inference",
+      "filename": "results.json",
+      "bytes": 12077,
+      "sha256": "8971fa111e87d09a9730427e384ca235d35a8c7a29d9b3f093a583375e7ca71b"
+    },
+    {
+      "id": "qwen_initial_load_failure",
+      "filename": "attempt-1.json",
+      "bytes": 1866,
+      "sha256": "ea21cfa27c9ece1cd18139b075ba8944959e9988a5b6104ab4f2b0b7494b45ce"
+    },
+    {
+      "id": "official_ds_26_requests",
+      "filename": "official-results.json",
+      "bytes": 61907,
+      "sha256": "d6d065c927de3d2a359856544e2acb8c740c93cefce32d90de2db2dd348e7acc"
+    },
+    {
+      "id": "official_ds_summary",
+      "filename": "summary.json",
+      "bytes": 2918,
+      "sha256": "8b39d3d30313d7bf54aee02d531b80c19c33d211dbd17a9bb97b85cf00cf3f09"
+    },
+    {
+      "id": "ds_initial_deployment",
+      "filename": "summary.json",
+      "bytes": 1638,
+      "sha256": "0e59349dc8d8361c821cb1d332e947bc5103b623aab78c6ede53e5782eeb7a54"
+    },
+    {
+      "id": "ds_pi",
+      "filename": "summary.json",
+      "bytes": 7481,
+      "sha256": "bab289edce919bc44aaa7cf49550634a5e6c68e0bbfcf1c225d73b5b7c243395"
+    },
+    {
+      "id": "ds_pi_speed",
+      "filename": "speed-summary.json",
+      "bytes": 2991,
+      "sha256": "9c8b249a1f65b7bd80626ee3fb6ed5fac7d518f7e7e8bbb201bfdb469772d35d"
+    },
+    {
+      "id": "qwen_api_summary",
+      "filename": "summary.json",
+      "bytes": 1836,
+      "sha256": "0d0588b08244de7d83e28138a10c847e806fd260ed386a3f2944d20ecd4b5a84"
+    },
+    {
+      "id": "phone_comparison",
+      "filename": "xhs-ds-local-vs-official.json",
+      "bytes": 2333,
+      "sha256": "d776206c2bea6227f3a5c56c70de474fbe1444c97173579cd467e7c1cb459245"
+    },
+    {
+      "id": "v31_deletion",
+      "filename": "deepseek-v31-deletion.json",
+      "bytes": 261,
+      "sha256": "f1bd991190ba387ac76bca87cdcaa6a5aba37bb9afe1ee605b84f4f34d81cc65"
+    },
+    {
+      "id": "startlux_small_models",
+      "filename": "metrics.json",
+      "bytes": 12727,
+      "sha256": "bd3426f4a4d4a13645cf25a90bd42d05f1fcf90f3b6a8436880d712955b4a6c9"
+    }
+  ],
+  "upstream_versions": {
+    "qwen_model": {
+      "repository": "https://huggingface.co/Qwen/Qwen3.8-Flash-Next",
+      "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+      "weight_bytes": 360000192888,
+      "weight_shards": 131
+    },
+    "ds_model": {
+      "repository": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "files_bytes": 510311045870,
+      "weight_shards_per_host": 48,
+      "model_file_count_per_host": 84,
+      "runtime_commit": "6f93965f97d31b97ab25c5b512873011feece8de"
+    },
+    "exo": {
+      "source_commit": "bc412e2230f395e652c23426a5eb88dfa515769b",
+      "actual_binary_version": "1.0.71",
+      "native_model_instances": 0
+    },
+    "android_experiment_companion_commit": "05029cf1131c64b92e0439c4dbf65327af485865"
+  }
+}

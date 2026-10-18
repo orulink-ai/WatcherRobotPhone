@@ -16,6 +16,7 @@
 | 手机 App + ESP32 怎么实现 | [路线一源码调研](docs/research/phone-app-esp32.md) |
 | 逐步查看截图、模型、BLE、HID 的信息流 | [交互架构图 HTML](docs/dataflow.html) · [查看方式](docs/research/README.md) |
 | 目前做到了哪一步、如何验收 | [评审与演示说明](docs/judges.md) |
+| 本地模型部署、变更记录与速度实测 | [本地模型部署记录](docs/local-model-deployment/README.md) |
 
 ## 本次优先实现的路线
 
