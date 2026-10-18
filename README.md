@@ -2,65 +2,54 @@
 
 **让 WatcheRobot 从“陪你聊天”，走向“帮你操作手机”。**
 
-京东 48 小时创作营项目。我们计划为 WatcheRobot 新增一个手机操作助手 Application：用户用自然语言或语音描述任务，AI 理解手机屏幕，通过 ESP32 模拟键鼠完成点击、输入和页面切换，再观察结果，逐步完成任务。
+京东 48 小时创作营项目。用户向桌面机器人提出自然语言需求，机器人通过局域网连接电脑，由电脑上的 PI 调用本项目的手机端 MCP，控制 Android 应用并读取操作结果。重复流程可以通过示教生成 Skill，再定位、验证和复用。
 
-> 当前阶段：仓库初始化与技术调研。尚未完成 WatcheRobot 集成或端到端实机验证；下文的目标能力不代表已经实现。
-
-## 评委从这里开始
-
-| 想了解什么 | 入口 |
-| --- | --- |
-| 项目要解决什么、展示什么 | [项目说明](docs/project.md) |
-| 48 小时准备做哪些事情 | [实施计划与验收标准](docs/plan.md) |
-| WatcheRobot 如何接入 | [技术架构](docs/architecture.md) |
-| 手机 App + ESP32 怎么实现 | [路线一源码调研](docs/research/phone-app-esp32.md) |
-| 逐步查看截图、模型、BLE、HID 的信息流 | [交互架构图 HTML](docs/dataflow.html) · [查看方式](docs/research/README.md) |
-| 目前做到了哪一步、如何验收 | [评审与演示说明](docs/judges.md) |
-| 本地模型部署、变更记录与速度实测 | [本地模型部署记录](docs/local-model-deployment/README.md) |
-
-## 本次优先实现的路线
+## 当前技术链路
 
 ```mermaid
 flowchart LR
-    Task[用户语音或文字任务] --> Agent[WatcheRobot 手机助手 Application]
-    Phone[手机伴随 App / 截屏] --> Agent
-    Agent <-->|图像与任务 / 单步动作| Model[视觉模型]
-    Agent -->|Device channel| Daemon[SDK Daemon]
-    Daemon --> ESP[WatcheRobot ESP32]
-    ESP -->|BLE HID 键鼠输入| OS[手机系统 / 目标 App]
-    OS -->|新画面| Phone
+    User[用户自然语言需求] <-->|语音交互| Robot[WatcheRobot 桌面机器人]
+    Robot <-->|局域网连接| Computer[电脑：机器人连接与 PI 任务处理]
+    Computer <-->|局域网 HTTP MCP：读屏、输入、点击、结果| Phone[Android：本项目 MCP 服务]
+    Phone <-->|无障碍操作与界面状态| Apps[美团 / 小红书等手机应用]
+    Computer <-->|在线模型请求| Cloud[Jev / DeepSeek 等模型后端]
 ```
 
-**先跑通一次可靠的“观察 → 决策 → 操作 → 再观察”。** 第一阶段选择大按钮、短流程的任务，例如打开目标 App、搜索商品并进入详情页；生活服务长流程是后续扩展方向。
+机器人负责语音交互与反馈，电脑上的 PI 负责组织任务和调用工具；手机端运行本项目 MCP，通过无障碍服务操作应用、读取节点和截图。手机执行后的界面状态回传电脑，供后续决策和结果验证。机器人业务连接复用现有 SDK/设备通道，MCP 是电脑到手机的工具连接。
 
-图中为 WatcheRobot 接入提案，图像接入协议与 HID 服务尚待实现。第三方参考实现把 Agent 放在手机 App 内，与本项目拟采用的 SDK Application 架构存在差异。
+**当前控制路径使用局域网与手机 MCP。ESP32 BLE HID、USB HID 和机器人摄像头拍屏属于前期调研，不承担本次手机操作。** 各演示所用模型与配置按对应实测记录区分；本地 Skill 命中时可跳过模型请求。
 
-## 两条技术路线
+## 已展示的能力
 
-| 路线 | 如何看屏幕 | 如何操作 | 当前决定 |
-| --- | --- | --- | --- |
-| 手机 App + ESP32 | 手机系统授权截屏，上传视觉模型 | ESP32 模拟键鼠 | 优先验证 |
-| 机器人摄像头 + ESP32 | 拍摄手机、定位屏幕、裁切与校正 | ESP32 模拟键鼠 | 保留为后续探索 |
+- **机器人语音操作美团**：提出晚饭、汉堡需求后，手机执行商家搜索、选购和订单流程；演示显示“支付成功”。用户随后语音要求取消，最终显示“订单已取消”。实机演示已上传一版至飞书问卷，支付确认方式未完整拍出。
+- **手机示教到 Skill**：在 Orulink Control 录制并提交，电脑完成 PI 验证、生成、复用与安装，再回报手机结果。[实机闭环记录](docs/research/app-workflow-loop.md)。
+- **固定流程复用**：小红书同一任务的 Jev 与 Skill 模式各3轮均成功；中位全程从22.537秒降至15.594秒，减少30.8%，每轮模型调用14→0。结果仅覆盖该固定任务、版本和小样本。[对照实验](docs/results/phone-record-replay-20261018.md)。
+- **参数化任务**：已实测更换搜索词后只收藏、按精确标题取消收藏，点赞保持不变；该模式仍由模型逐步判断。[经验辅助与验收](docs/research/phone-experience.md)。
 
-本次已有的可核验参考是 iPhone 项目 `boboabw/phone-agent`，固定到 commit `a90045074afcd4de69f885fba25b0b171d690f45`。目标手机平台需先实测确定；不能将 iOS 参考代码视为可直接用于 Android。
+美团演示由团队确认完成；它与仓库中的小红书测速分别留证，不能混用任务耗时或模型配置。最终冻结版本仍在修改，当前 main 不自动代表最终提交版。
 
-## 当前进度
+## 评委与开发者入口
 
-- [x] 明确项目目标、两条路线与首选方向。
-- [x] 拉取并静态分析参考项目的全部 ESP32 固件及关键 App 源码。
-- [x] 梳理截图、模型、坐标校准、BLE 控制、HID 与结果反馈。
-- [x] 建立公开参赛资料入口及交互架构图。
-- [ ] 确认目标手机与系统截屏能力。
-- [ ] 验证 HID 配对、校准与大按钮点击。
-- [ ] 接入 WatcheRobot Application 与设备通道。
-- [ ] 跑通端到端演示并补充测试数据、录屏与照片。
+| 内容 | 入口 |
+| --- | --- |
+| 当前机器人—电脑—手机架构 | [技术架构](docs/architecture.md) |
+| 手机控制、依赖与运行入口 | [PI 手机控制](experiments/pi-phone-use/README.md) |
+| 日常 pi-phone 的使用与排查 | [终端入口](docs/research/pi-phone-terminal.md) |
+| App 录制、一键作业、生成与发布 | [App 闭环](docs/research/app-workflow-loop.md) |
+| 固定流程的速度、模型调用和失败记录 | [复用实验](docs/results/phone-record-replay-20261018.md) |
+| 可变搜索词与目标帖 | [经验模式](docs/research/phone-experience.md) |
+| Android 构建与后端说明 | [Android 说明](docs/android-backend/README.md) |
+| 可选本地模型部署与对照 | [部署档案](docs/local-model-deployment/README.md) |
+| 开源底座和历史来源 | [第三方说明](THIRD_PARTY.md) |
 
-## 仓库范围
+## 使用条件与边界
 
-本仓库承载黑客松的项目说明、技术调研、Application 集成与演示资料。WatcheRobot SDK、Daemon 和既有固件保留在各自源码仓库，后续适配通过明确的接口与配套提交关联，不在此复制另一份 Daemon。
+需要解锁的 Android 手机、已开启的无障碍/MCP 服务、配置好的电脑和可互通局域网。日常 PI 手机操作通过 LAN MCP，无需持续连接 USB；ADB 仅用于部分历史安装、诊断和实验准备。ROG 魔盒 Air 提供局域网路由与无线网络，Mac Studio 用于可选本地模型研究。
 
-初始化内容为文档与可离线打开的 HTML，无需安装依赖。实现进入本仓库后，再补充实际启动与测试命令。
+PI、任务策略、MCP 和 Skill 执行在本地，在线模型通过云 API 调用。录制生成入口目前限定已验证示例，经验模式覆盖小红书搜索及点赞/收藏任务族；不代表任意应用或任意录制都可直接执行。长时后台稳定性和更多机型仍需验证，详细失败记录见各实测文档。
 
-## Android MCP 实验实现
+## 仓库历史与第三方基础
 
-已合并 Android MCP 应用源码、手机控制体验、Pi 工作流和 StartLux 接入。详见[Android 后端与运行说明](docs/android-backend/README.md)。这条实现链路与上文 ESP32 BLE HID 路线分别记录，合入源码不代表整体实机验证已完成。
+Android MCP 基础源自 `danielealbano/android-remote-control-mcp`。本项目将其源码快照整理为一次 `chore: 初始化提交`，保留 MIT 许可证、版权和来源；后续功能、修复及文档提交独立保留。原完整历史保存在归档分支 `archive/history-before-upstream-squash-20261018`，上游基础能力不计为本队48小时原创成果。
+
+前期 ESP32 HID、摄像头和 Phone Agent 调研保留在 [研究资料](docs/research/README.md)，用于说明路线演进；其中历史架构不代表当前运行链路。
