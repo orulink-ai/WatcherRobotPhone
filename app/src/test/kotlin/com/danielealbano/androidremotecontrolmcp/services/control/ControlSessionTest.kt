@@ -35,7 +35,7 @@ class ControlSessionTest {
                 }
 
             assertEquals(42, result)
-            assertEquals(ControlSessionState(lastTool = "tap", revision = 2), session.state.value)
+            assertEquals(ControlSessionState(lastTool = "tap", revision = 2, isEngaged = true), session.state.value)
         }
 
     @Test
@@ -54,7 +54,7 @@ class ControlSessionTest {
             assertEquals("first", session.state.value.activeTool)
             finishFirst.complete(Unit)
             first.await()
-            assertEquals(ControlSessionState(lastTool = "second", revision = 4), session.state.value)
+            assertEquals(ControlSessionState(lastTool = "second", revision = 4, isEngaged = true), session.state.value)
         }
 
     @Test

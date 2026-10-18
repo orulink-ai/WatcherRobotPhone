@@ -2,6 +2,7 @@ package com.danielealbano.androidremotecontrolmcp.services.control
 
 internal data class GestureFeedbackEnd(
     val clearCursor: Boolean,
+    val completeCursor: Boolean = false,
 )
 
 /** Main-thread ledger: injected input may outlive the coroutine that requested it. */
@@ -38,6 +39,10 @@ internal class ControlGestureFeedback {
         return deadline
     }
 
+    fun approaching(token: Long) {
+        if (entries.containsKey(token)) cursorOwner = token
+    }
+
     fun deadline(token: Long): Long? = entries[token]?.deadline
 
     fun finish(
@@ -47,7 +52,10 @@ internal class ControlGestureFeedback {
         if (entries.remove(token) == null) return null
         val ownsCursor = cursorOwner == token
         if (ownsCursor) cursorOwner = null
-        return GestureFeedbackEnd(clearCursor = cancelled && ownsCursor)
+        return GestureFeedbackEnd(
+            clearCursor = cancelled && ownsCursor,
+            completeCursor = !cancelled && ownsCursor,
+        )
     }
 
     fun expire(

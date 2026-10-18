@@ -20,7 +20,7 @@
     <string name="control_overlay_tapping">Interacting with the screen</string>
     <string name="control_overlay_typing">Entering text</string>
     <string name="control_overlay_opening">Opening an app</string>
-    <string name="control_overlay_connected">Remote control connected</string>
+    <string name="control_overlay_connected">AI control is ready</string>
     <string name="control_overlay_expand">Orulink: %1$s. Show controls. Drag to move.</string>
     <string name="control_overlay_collapse">Collapse controls</string>
     <string name="control_overlay_compact_ready">Ready</string>

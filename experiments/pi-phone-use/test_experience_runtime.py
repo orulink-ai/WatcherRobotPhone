@@ -117,6 +117,12 @@ def detail(*, liked=False, collected=False, title=TITLE, author="任意作者", 
     return value
 
 
+def detail_with_active_collect_semantics(*, collected=False):
+    value = detail(collected=collected)
+    value["content"][0]["text"] = value["content"][0]["text"].replace("收藏12", "已收藏12")
+    return value
+
+
 class FakeMcp:
     def __init__(self, states, error=None):
         self.states = iter(states)
@@ -406,6 +412,65 @@ def test_toggle_ack_without_changed_state_stops_without_retry(tmp_path, monkeypa
     assert len([name for name, _ in mcp.calls if name == "android_click_node"]) == 2
 
 
+def test_active_collect_semantics_overrides_occluded_inactive_pixels(tmp_path, monkeypatch):
+    phone, _ = runtime(tmp_path, monkeypatch,
+        [results(), results(), detail_with_active_collect_semantics()],
+        task(desired={"collected": False}))
+    observed = bind(phone)["state"]["observation"]
+    assert observed["collected"] is True
+    assert phone.progress.phase != "done"
+    evidence = observed["evidence"]["collected"]
+    assert evidence["active"] is False  # Preserve the screenshot's actual reading.
+    assert evidence["axSemanticActive"] is True
+    assert evidence["screenshotConflict"] is True
+    assert evidence["effectiveActive"] is True
+    assert any(action["role"] == "collect" for action in phone.actions.values())
+
+
+def test_cancel_collect_is_dispatched_when_fresh_frame_is_occluded(tmp_path, monkeypatch):
+    phone, mcp = runtime(tmp_path, monkeypatch,
+        [results(), results(), detail_with_active_collect_semantics(collected=True),
+         detail_with_active_collect_semantics(), detail()],
+        task(desired={"collected": False}))
+    bind(phone)
+    observed = phone.act(choose(phone, "collect"))
+    assert observed["done"]
+    # Opening the card and cancelling the real still-active collection are two actions.
+    assert len([name for name, _ in mcp.calls if name == "android_click_node"]) == 2
+    verifications = [event for event in phone.operations if event["name"] == "toggle_verification"]
+    assert len(verifications) == 1
+    assert verifications[0]["field"] == "collected"
+    assert verifications[0]["before"] is True and verifications[0]["after"] is False
+
+
+def test_cancel_collect_waits_until_active_semantics_disappear(tmp_path, monkeypatch):
+    phone, mcp = runtime(tmp_path, monkeypatch,
+        [results(), results(), detail_with_active_collect_semantics(collected=True),
+         detail_with_active_collect_semantics(collected=True),
+         detail_with_active_collect_semantics(), detail_with_active_collect_semantics(), detail()],
+        task(desired={"collected": False}))
+    bind(phone)
+    assert phone.act(choose(phone, "collect"))["done"]
+    assert len([event for event in phone.operations if event["name"] == "toggle_settle"]) == 2
+    verifications = [event for event in phone.operations if event["name"] == "toggle_verification"]
+    assert len(verifications) == 1 and verifications[0]["afterObservation"] == 7
+    assert len([name for name, _ in mcp.calls if name == "android_click_node"]) == 2
+
+
+def test_persistent_collect_semantic_pixel_conflict_cannot_verify_cancel(tmp_path, monkeypatch):
+    phone, mcp = runtime(tmp_path, monkeypatch,
+        [results(), results(), detail_with_active_collect_semantics(collected=True),
+         detail_with_active_collect_semantics(collected=True)]
+        + [detail_with_active_collect_semantics()] * 3,
+        task(desired={"collected": False}))
+    bind(phone)
+    with pytest.raises(ExperienceRuntimeError) as caught:
+        phone.act(choose(phone, "collect"))
+    assert caught.value.code == "TOGGLE_UNVERIFIED"
+    assert not any(event["name"] == "toggle_verification" for event in phone.operations)
+    assert len([name for name, _ in mcp.calls if name == "android_click_node"]) == 2
+
+
 def test_pre_dispatch_missing_node_reobserves_without_automatic_retry(tmp_path, monkeypatch):
     phone, mcp = runtime(
         tmp_path, monkeypatch, [results(), results(), detail(), detail(), detail()]
@@ -521,6 +586,31 @@ def test_real_1440_result_geometry_includes_carousel_first_not_profile_or_masonr
     )
     assert _title_visible(caption, "任意标题")
     assert not _title_visible(caption, "任意")
+
+
+@pytest.mark.parametrize("metadata", [
+    "1天前", "2小时前", "3分钟前", "5秒前", "1周前", "2个月前", "1年前", "半小时前", "刚刚", "刚才",
+])
+def test_relative_publication_metadata_cannot_become_first_card_title(metadata):
+    from experience_runtime import result_cards, _public_label
+    from own_mcp import own_nodes
+
+    raw = "screen:1080x2340\n--- window:1 pkg:com.xingin.xhs focused:true ---\n" + "\n".join([
+        node("a", klass="ViewGroup", bounds=(20, 500, 520, 1200)),
+        node("b", metadata, bounds=(30, 900, 300, 950), flags="on,ena"),
+        node("c", "动态首篇标题", bounds=(30, 1000, 500, 1090), flags="on,ena"),
+    ])
+    assert not _public_label(metadata)
+    assert result_cards(own_nodes(raw), (1080, 2340))[0]["targetTitle"] == "动态首篇标题"
+
+
+@pytest.mark.parametrize("title", [
+    "当我闯进一个限时48小时的创造营", "1天前我决定出发", "3分钟前的雪", "刚刚好的一天", "10分钟早餐",
+])
+def test_titles_containing_time_words_remain_public_labels(title):
+    from experience_runtime import _public_label
+
+    assert _public_label(title)
 
 
 def test_first_unreadable_post_does_not_fall_through_to_second(tmp_path, monkeypatch):

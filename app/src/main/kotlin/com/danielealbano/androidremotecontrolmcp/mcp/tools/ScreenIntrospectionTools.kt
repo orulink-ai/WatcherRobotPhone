@@ -27,6 +27,7 @@ import com.danielealbano.androidremotecontrolmcp.services.screencapture.Screensh
 import com.danielealbano.androidremotecontrolmcp.services.screencapture.ScreenshotRedactor
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
+import io.modelcontextprotocol.kotlin.sdk.types.TextContent
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -192,18 +193,19 @@ class GetScreenStateHandler
                 )
             }
 
-            val bitmapResult =
-                screenCaptureProvider.captureScreenshotBitmap(
+            val frameResult =
+                screenCaptureProvider.captureScreenshotFrame(
                     maxWidth = SCREENSHOT_MAX_SIZE,
                     maxHeight = SCREENSHOT_MAX_SIZE,
                 )
-            val resizedBitmap =
-                bitmapResult.getOrElse { exception ->
+            val frame =
+                frameResult.getOrElse { exception ->
                     Log.e(TAG, "Screenshot capture failed", exception)
                     throw McpToolException.ActionFailed(
                         "Screenshot capture failed",
                     )
                 }
+            val resizedBitmap = frame.bitmap
 
             // Paint opaque boxes over flagged node bounds BEFORE annotation so PII never reaches the pixels.
             val maskedBitmap =
@@ -224,16 +226,31 @@ class GetScreenStateHandler
 
                 // Encode annotated bitmap to base64 JPEG
                 val screenshotData =
-                    screenshotEncoder.bitmapToScreenshotData(
-                        annotatedBitmap,
-                        ScreenCaptureProvider.DEFAULT_QUALITY,
-                    )
+                    screenshotEncoder
+                        .bitmapToScreenshotData(
+                            annotatedBitmap,
+                            ScreenCaptureProvider.DEFAULT_QUALITY,
+                        ).copy(captureMetadata = frame.captureMetadata)
 
-                return McpToolUtils.untrustedTextAndImageResult(
-                    compactOutput,
-                    screenshotData.data,
-                    "image/jpeg",
-                )
+                val response =
+                    McpToolUtils.untrustedTextAndImageResult(
+                        compactOutput,
+                        screenshotData.data,
+                        "image/jpeg",
+                    )
+                val overlayNotice =
+                    ScreenshotCaptureNotice.format(
+                        screenshotData.captureMetadata,
+                        screenshotData.width,
+                        screenshotData.height,
+                    )
+                return if (overlayNotice == null) {
+                    response
+                } else {
+                    response.copy(
+                        content = listOf(TextContent(text = overlayNotice)) + response.content,
+                    )
+                }
             } catch (e: McpToolException) {
                 throw e
             } catch (e: Exception) {

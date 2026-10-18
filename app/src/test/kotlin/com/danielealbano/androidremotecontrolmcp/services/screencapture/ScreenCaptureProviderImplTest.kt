@@ -1,6 +1,9 @@
 package com.danielealbano.androidremotecontrolmcp.services.screencapture
 
 import android.graphics.Bitmap
+import com.danielealbano.androidremotecontrolmcp.data.model.ScreenshotBounds
+import com.danielealbano.androidremotecontrolmcp.data.model.ScreenshotCaptureMetadata
+import com.danielealbano.androidremotecontrolmcp.data.model.ScreenshotData
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.AccessibilityServiceProvider
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.McpAccessibilityService
 import io.mockk.coEvery
@@ -143,4 +146,42 @@ class ScreenCaptureProviderImplTest {
                 verify(exactly = 0) { bitmap.recycle() }
             }
     }
+
+    @Test
+    fun `resizing a captured frame preserves its original screen coordinates`() =
+        runTest {
+            val original = mockk<Bitmap>(relaxed = true)
+            val resized = mockk<Bitmap>(relaxed = true)
+            val metadata = ScreenshotCaptureMetadata(1440, 3200, ScreenshotBounds(48, 2800, 1392, 3060))
+            coEvery { mockService.takeScreenshotFrame() } returns CapturedScreenshot(original, metadata)
+            every { screenshotEncoder.resizeBitmapProportional(original, 700, 700) } returns resized
+
+            val result = provider.captureScreenshotFrame(700, 700).getOrThrow()
+
+            assertEquals(resized, result.bitmap)
+            assertEquals(metadata, result.captureMetadata)
+            verify(exactly = 1) { original.recycle() }
+            verify(exactly = 0) { resized.recycle() }
+        }
+
+    @Test
+    fun `encoded screenshot retains metadata from the same native frame`() =
+        runTest {
+            val original = mockk<Bitmap>(relaxed = true)
+            val resized = mockk<Bitmap>(relaxed = true)
+            val metadata = ScreenshotCaptureMetadata(1440, 3200, ScreenshotBounds(48, 2800, 1392, 3060))
+            coEvery { mockService.takeScreenshotFrame() } returns CapturedScreenshot(original, metadata)
+            every { screenshotEncoder.resizeBitmapProportional(original, 700, 700) } returns resized
+            every { screenshotEncoder.bitmapToScreenshotData(resized, 80) } returns
+                ScreenshotData(data = "pixels", width = 315, height = 700)
+
+            val result = provider.captureScreenshot(80, 700, 700).getOrThrow()
+
+            assertEquals("pixels", result.data)
+            assertEquals(metadata, result.captureMetadata)
+            assertEquals(315, result.width)
+            assertEquals(700, result.height)
+            verify(exactly = 1) { original.recycle() }
+            verify(exactly = 1) { resized.recycle() }
+        }
 }

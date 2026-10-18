@@ -139,6 +139,8 @@ fun ServerScreen(
                 onChannelStopClick = { channelViewModel.stopChannel() },
                 startEnabled = isAccessibilityEnabled,
                 controlState = controlState,
+                onControlStartClick = controlViewModel::enterControl,
+                onControlExitClick = controlViewModel::exitControl,
             )
 
             Spacer(Modifier.height(16.dp))

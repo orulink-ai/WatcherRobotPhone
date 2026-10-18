@@ -10,6 +10,7 @@ import com.danielealbano.androidremotecontrolmcp.services.accessibility.Accessib
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.BoundsData
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.PaginationTestTrees
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.ScreenInfo
+import com.danielealbano.androidremotecontrolmcp.services.screencapture.CapturedScreenshot
 import com.danielealbano.androidremotecontrolmcp.services.screencapture.ScreenCaptureProvider
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -127,8 +128,8 @@ class ScreenIntrospectionIntegrationTest {
             // Mock captureScreenshotBitmap to return a relaxed mock Bitmap
             val mockBitmap = mockk<Bitmap>(relaxed = true)
             coEvery {
-                deps.screenCaptureProvider.captureScreenshotBitmap(any(), any())
-            } returns Result.success(mockBitmap)
+                deps.screenCaptureProvider.captureScreenshotFrame(any(), any())
+            } returns Result.success(CapturedScreenshot(mockBitmap))
 
             // Mock annotator to return the same mock bitmap (no Android Canvas needed)
             val annotatedMockBitmap = mockk<Bitmap>(relaxed = true)
@@ -196,7 +197,7 @@ class ScreenIntrospectionIntegrationTest {
                 assertTrue(result.content[0] is TextContent)
 
                 coVerify(exactly = 0) {
-                    deps.screenCaptureProvider.captureScreenshotBitmap(any(), any())
+                    deps.screenCaptureProvider.captureScreenshotFrame(any(), any())
                 }
             }
         }
@@ -228,8 +229,8 @@ class ScreenIntrospectionIntegrationTest {
 
             val mockBitmap = mockk<Bitmap>(relaxed = true)
             coEvery {
-                deps.screenCaptureProvider.captureScreenshotBitmap(any(), any())
-            } returns Result.success(mockBitmap)
+                deps.screenCaptureProvider.captureScreenshotFrame(any(), any())
+            } returns Result.success(CapturedScreenshot(mockBitmap))
 
             // Simulate annotation failure
             every {

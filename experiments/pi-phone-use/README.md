@@ -210,6 +210,35 @@ export PHONE_BENCH_RECIPE="$PHONE_BENCH_OUTPUT_DIR/skill-bundle/recipe.json"
 4. PI 整体耗时完整包含主模型失败、观察刷新与兜底成本。日志保留各次模型尝试、失败分类及实际选用 backend，启动元数据的 `decisionMode` 和 `decisionPolicyDetails` 说明显式选择的策略，自动模式另记录 `decisionTimeoutsSeconds`。
 5. 两模型当前共用 OpenRouter；切换模型不能保证解决同一个网关或本地网络故障。
 
-离线 TDD 覆盖决策回退及 PI 工具调用顺序，具体边界见 [策略与验证计划](../../docs/plans/pi-jev-fallback.md)。历史研究证据保持原样；新策略的离线测试通过不代表已取得新一轮实机耗时或成功率。该扩展仍是专用任务入口，未全局安装为默认 PI agent。
+离线 TDD 覆盖决策回退及 PI 工具调用顺序，具体边界见 [策略与验证计划](../../docs/plans/pi-jev-fallback.md)。历史研究证据保持原样；新策略的离线测试通过不代表已取得新一轮实机耗时或成功率。上述 `pi-extension.ts` 是专用实验入口；普通 PI 的入口见下节。
 
 命令行 worker 的输入等待可取消，SIGTERM 会在等待输入或模型响应时触发清理、保存失败结果并以 143 退出。同步 MCP HTTP 调用正在阻塞时仍可能需要父进程的有界强制退出；这种情况下不保证会话终止已完成，也不会自动重放动作。
+
+## 普通 PI 自动接入手机
+
+`normal-phone-extension.ts` 已加入本机 `~/.pi/agent/settings.json` 的扩展列表。新启动普通 `pi` 即可直接输入手机任务；已打开的 PI 执行 `/reload` 加载。普通聊天保留原来的模型、工具和 thinking 设置，明确的手机请求临时进入 `phone-control/auto`，任务结束恢复原设置。
+
+```text
+普通 PI 输入
+  → phone_intent.py 解析本次明确目标
+  → phone-control/auto：PI 逐步观察、请求决策、派发动作
+  → phone_local_worker.py
+      → 本地 StartLux（局域网 8094 /v1/systemone）主决策
+      → 主决策失败时，PI 先重新观察，再请求云端 DeepSeek 兜底
+  → 原 watcher_android MCP 读屏、执行、验证
+```
+
+本地 DeepSeek 聊天模型不参与这条手机决策链。每步只执行当前观察允许的候选动作；模型不能自行调用手机工具。主决策每步优先恢复为 StartLux，兜底最多一次。`~/.local/share/orulink-phone/codex/control.lock` 与既有手机入口共用，避免两条控制链同时操作。
+
+支持读屏、打开应用、小红书搜索，以及搜索后对单个首篇或精确标题帖子设置点赞、收藏。只执行本次明确要求的状态变化；取消点赞、取消收藏和退出均需在请求中明确提出。能力咨询、否定操作和普通聊天不会启动手机任务；多目标和未支持的手机任务会停止并说明范围。当前入口不代表任意应用的通用自动操作。
+
+本机配置由 `phone_profile.py` 从 `~/.config/orulink-phone/terminal.json` 读取：`python`、`mcpConfig`、`mcpServer`、`output`、可选 `recipe` / `experienceEnabled`、`localPrimaryUrl` 和 `cloudDeepSeekKeyFile`。配置只向子进程传文件引用，MCP 请求头和云端密钥由 worker 从私有文件读取。运行记录位于配置的 output 目录，每轮含实际模型计数、动作验证和耗时；CLI 正常退出不等于手机任务成功，必须检查 `result.json`。
+
+完整验收示例：
+
+```text
+打开小红书，搜索“小狮日记”，打开第一篇内容，先点赞、收藏，
+再取消点赞、取消收藏，然后退出小红书回到桌面。
+```
+
+验收需逐项检查四次真实状态变化和桌面证明。其他聊天正在安装 APK 或运行 instrumentation 时不要并发验收；这些操作可能断开无障碍服务，不能计为模型成功或性能数据。

@@ -11,7 +11,16 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.spyk
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -23,6 +32,7 @@ import org.junit.jupiter.api.assertThrows
 import java.lang.reflect.Field
 
 @DisplayName("ActionExecutorImpl")
+@OptIn(ExperimentalCoroutinesApi::class)
 class ActionExecutorImplTest {
     private lateinit var executor: ActionExecutorImpl
     private lateinit var mockService: McpAccessibilityService
@@ -31,6 +41,7 @@ class ActionExecutorImplTest {
 
     @BeforeEach
     fun setUp() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
         mockCache = mockk<AccessibilityNodeCache>(relaxed = true)
         mockTreeParser = mockk<AccessibilityTreeParser>(relaxed = true)
         executor = ActionExecutorImpl(mockCache, mockTreeParser)
@@ -40,6 +51,7 @@ class ActionExecutorImplTest {
     @AfterEach
     fun tearDown() {
         setServiceInstance(null)
+        Dispatchers.resetMain()
     }
 
     /**
@@ -384,6 +396,7 @@ class ActionExecutorImplTest {
                 setServiceInstance(mockService)
                 val mockRootNode1 = mockk<AccessibilityNodeInfo>(relaxed = true)
                 every { mockRootNode1.childCount } returns 0
+                every { mockRootNode1.refresh() } returns true
                 every { mockRootNode1.isClickable } returns true
                 every { mockRootNode1.performAction(AccessibilityNodeInfo.ACTION_CLICK) } returns true
 
@@ -432,6 +445,7 @@ class ActionExecutorImplTest {
 
                 val mockRootNode2 = mockk<AccessibilityNodeInfo>(relaxed = true)
                 every { mockRootNode2.childCount } returns 0
+                every { mockRootNode2.refresh() } returns true
                 every { mockRootNode2.isClickable } returns true
                 every { mockRootNode2.performAction(AccessibilityNodeInfo.ACTION_CLICK) } returns true
                 val mockWindowInfo2 = mockk<AccessibilityWindowInfo>(relaxed = true)
@@ -531,6 +545,7 @@ class ActionExecutorImplTest {
 
                 val mockFallbackRoot = mockk<AccessibilityNodeInfo>(relaxed = true)
                 every { mockFallbackRoot.childCount } returns 0
+                every { mockFallbackRoot.refresh() } returns true
                 every { mockFallbackRoot.isClickable } returns true
                 every { mockFallbackRoot.performAction(AccessibilityNodeInfo.ACTION_CLICK) } returns true
                 every { mockService.getRootNode() } returns mockFallbackRoot
@@ -811,6 +826,96 @@ class ActionExecutorImplTest {
     }
 
     @Nested
+    @DisplayName("Node pointer approach lifecycle")
+    inner class NodePointerApproach {
+        private lateinit var node: AccessibilityNodeInfo
+        private val token = 42L
+
+        @BeforeEach
+        fun prepareNode() {
+            setServiceInstance(mockService)
+            node = mockk(relaxed = true)
+            mockCacheHitWithIdentity(CachedNode(node, depth = 1, index = 0, parentId = "root"), "node_target")
+            every { node.windowId } returns 7
+            every { node.viewIdResourceName } returns "com.example:id/save"
+            every { node.uniqueId } returns "stable-save-button"
+            every { node.className } returns "android.widget.Button"
+            every { node.text } returns "Save"
+            every { node.contentDescription } returns "Save changes"
+            every { node.isClickable } returns true
+            every { node.performAction(AccessibilityNodeInfo.ACTION_CLICK) } returns true
+            coEvery { mockService.prepareTargetFeedback(any()) } returns token
+        }
+
+        @Test
+        fun `a target moved during the approach is not clicked`() =
+            runTest {
+                coEvery { mockService.prepareTargetFeedback(any()) } coAnswers {
+                    delay(200L)
+                    every { node.getBoundsInScreen(any()) } answers {
+                        firstArg<Rect>().apply {
+                            left = 200
+                            top = 300
+                            right = 300
+                            bottom = 400
+                        }
+                        Unit
+                    }
+                    token
+                }
+
+                val result = executor.clickNode("node_target", emptyList())
+
+                assertTrue(result.isFailure)
+                assertTrue(result.exceptionOrNull()?.message?.contains("Target changed") == true)
+                verify(exactly = 0) { node.performAction(any()) }
+                verify(exactly = 1) { mockService.finishTargetFeedback(token, any(), false) }
+            }
+
+        @Test
+        fun `cancelling the pointer approach never performs the node action`() =
+            runTest {
+                val approaching = CompletableDeferred<Unit>()
+                coEvery { mockService.prepareTargetFeedback(any()) } coAnswers {
+                    approaching.complete(Unit)
+                    delay(1000L)
+                    token
+                }
+                val operation = async { executor.clickNode("node_target", emptyList()) }
+                approaching.await()
+
+                operation.cancelAndJoin()
+
+                assertTrue(operation.isCancelled)
+                verify(exactly = 0) { node.performAction(any()) }
+                coVerify(exactly = 1) { mockService.prepareTargetFeedback(any()) }
+            }
+
+        @Test
+        fun `a stable target is clicked after approach and reports successful feedback exactly once`() =
+            runTest {
+                var approachFinished = false
+                coEvery { mockService.prepareTargetFeedback(any()) } coAnswers {
+                    delay(200L)
+                    approachFinished = true
+                    token
+                }
+                every { node.performAction(AccessibilityNodeInfo.ACTION_CLICK) } answers {
+                    assertTrue(approachFinished, "The real action must wait for the visible pointer approach")
+                    true
+                }
+
+                val result = executor.clickNode("node_target", emptyList())
+
+                assertTrue(result.isSuccess)
+                verify(exactly = 1) { node.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
+                verify(exactly = 1) { mockService.finishTargetFeedback(token, any(), true) }
+                verify(exactly = 0) { mockService.finishTargetFeedback(any(), any(), false) }
+                coVerify(exactly = 1) { mockService.prepareTargetFeedback(any()) }
+            }
+    }
+
+    @Nested
     @DisplayName("Custom gesture validation")
     inner class CustomGestureValidation {
         @Test
@@ -911,6 +1016,7 @@ class ActionExecutorImplTest {
 
                 val mockRootNode = mockk<AccessibilityNodeInfo>(relaxed = true)
                 every { mockRootNode.childCount } returns 0
+                every { mockRootNode.refresh() } returns true
                 every { mockRootNode.isClickable } returns true
                 every { mockRootNode.performAction(AccessibilityNodeInfo.ACTION_CLICK) } returns true
                 val mockWindowInfo = mockk<AccessibilityWindowInfo>(relaxed = true)
@@ -1075,6 +1181,7 @@ class ActionExecutorImplTest {
 
                 val mockRootNode = mockk<AccessibilityNodeInfo>(relaxed = true)
                 every { mockRootNode.childCount } returns 0
+                every { mockRootNode.refresh() } returns true
                 every { mockRootNode.isClickable } returns true
                 every { mockRootNode.performAction(AccessibilityNodeInfo.ACTION_CLICK) } returns true
                 val mockWindowInfo = mockk<AccessibilityWindowInfo>(relaxed = true)
