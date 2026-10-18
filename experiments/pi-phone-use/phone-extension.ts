@@ -18,6 +18,7 @@ import {
   type Usage,
 } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { conversationRoute, timingSummary, type PreviousTask } from "./terminal-conversation.ts";
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const API = "phone-benchmark-stdio";
@@ -87,9 +88,10 @@ export class WorkerBridge {
           TOGGLE_UNVERIFIED: "动作结果未取得配对验证，已停止；未重复点击。",
           TARGET_CHANGED: "目标帖子或未授权改变的状态发生变化，已停止。",
           STOPPED: "手机任务已经停止。",
+          UNSUPPORTED_TASK: "这条请求不在当前手机控制器支持范围内，未执行手机操作。pi-phone 当前使用专用控制器；普通聊天请使用 pi。手机任务支持读屏、打开应用及小红书搜索/点赞/收藏。",
         };
         const code = reply.errorDetails?.code;
-        if (["TerminalRuntimeError", "ExperienceRuntimeError"].includes(reply.errorDetails?.exceptionType) && typeof code === "string" && Object.hasOwn(messages, code)) {
+        if (["TerminalRuntimeError", "ExperienceRuntimeError", "TerminalTaskError"].includes(reply.errorDetails?.exceptionType) && typeof code === "string" && Object.hasOwn(messages, code)) {
           this.terminalDiagnostic = messages[code];
         }
         entry.reject(new Error(this.terminalDiagnostic ?? "Phone worker rejected command"));
@@ -174,6 +176,8 @@ export function decisionUsage(decision: any): Usage {
 function latestObservation(context: TranscriptContext): Observation | undefined {
   for (let i = context.messages.length - 1; i >= 0; i--) {
     const message: any = context.messages[i];
+    // A new user turn must obtain its own observation before making decisions.
+    if (message.role === "user") return;
     if (message.role !== "toolResult" || !["phone_observe", "phone_action"].includes(message.toolName)) continue;
     if (message.isError) throw new Error("Previous phone tool failed; execution stopped");
     const text = message.content.filter((block: any) => block.type === "text").map((block: any) => block.text).join("\n");
@@ -210,7 +214,7 @@ function terminalSummary(result: any): string {
   const deepseek = attempts.filter((a: any) => a.backend === "deepseek").length;
   const steps = result.recipeExecution?.verifiedSteps;
   const experience = result.terminalTask?.kind === "experience";
-  const lines = ["手机任务已完成并验证。", "控制通道：本项目 Android MCP；未使用 ADB。",
+  const lines = ["手机任务已完成并验证。", timingSummary(result), "控制通道：本项目 Android MCP；未使用 ADB。",
     experience
       ? `录制经验辅助：${policy.experienceLoaded === true ? "已加载" : "未加载"}；每步实时判断；自动配方回放 0 步；Jev 请求 ${jev} 次；DeepSeek 兜底 ${deepseek} 次。`
       : `录制 Skill 验证：${typeof steps === "number" ? `${steps} 步` : "本次未使用"}；Jev 请求 ${jev} 次；DeepSeek 兜底 ${deepseek} 次。`];
@@ -229,6 +233,8 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: { terminalText:
   let bootstrapSent = false;
   let failed = false;
   let finalized: any;
+  let previousTerminal: PreviousTask | undefined;
+  let currentTerminalGoal: string | undefined;
   const providerId = config.terminal ? "phone-control" : "phone-benchmark";
   const worker = (backend?: Backend, providerEnv?: Record<string, string>) => {
     if (!bridge) {
@@ -242,12 +248,20 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: { terminalText:
   pi.on("agent_start", async () => {
     bridge?.kill(); bridge = undefined;
     startedAt = performance.now(); bootstrapSent = false; failed = false; finalized = undefined;
+    currentTerminalGoal = undefined;
     pi.appendEntry("phone-benchmark-start", { trialId: process.env.PHONE_BENCH_TRIAL, execution: "pi-agent-loop" });
   });
   pi.on("agent_end", async () => {
     if (startedAt !== undefined) {
       const piElapsedMs = performance.now() - startedAt;
       const result = finalized ?? await bridge?.finish(piElapsedMs);
+      if (config.terminal && currentTerminalGoal) {
+        previousTerminal = { goal: currentTerminalGoal, result: {
+          status: result?.status ?? "failed", elapsedMs: result?.elapsedMs,
+          piElapsedMs: result?.piElapsedMs ?? piElapsedMs,
+        } };
+        pi.appendEntry("phone-terminal-result", previousTerminal);
+      }
       pi.appendEntry("phone-benchmark-finish", {
         trialId: result?.trialId ?? process.env.PHONE_BENCH_TRIAL, piElapsedMs,
         status: result?.status ?? "worker_unavailable", modelCalls: result?.modelCalls,
@@ -269,6 +283,8 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: { terminalText:
       return { action: "continue" };
     });
     pi.on("session_start", async (_event, ctx) => {
+      const saved = ctx.sessionManager.getBranch().filter((entry: any) => entry.type === "custom" && entry.customType === "phone-terminal-result").at(-1) as any;
+      if (typeof saved?.data?.goal === "string" && saved.data.result) previousTerminal = saved.data;
       if (ctx.hasUI) ctx.ui.setStatus("phone-control", "录制经验辅助 Jev → DeepSeek · 本项目 Android MCP · 无 ADB");
     });
     pi.registerCommand("phone-replay", {
@@ -324,18 +340,37 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: { terminalText:
         timestamp: Date.now(), stopReason: "pending", usage: decisionUsage(undefined),
       };
       (async () => {
+        const completeText = (text: string) => {
+          output.content = [{ type: "text", text: "" }];
+          stream.push({ type: "text_start", contentIndex: 0, partial: output });
+          output.content[0] = { type: "text", text };
+          stream.push({ type: "text_delta", contentIndex: 0, delta: text, partial: output });
+          stream.push({ type: "text_end", contentIndex: 0, content: text, partial: output });
+          output.stopReason = "stop";
+          stream.push({ type: "done", reason: "stop", message: output });
+        };
         try {
           if (failed) throw new Error("Phone trial already failed");
           if (options?.signal?.aborted) throw new Error("Aborted");
           if (config.terminal ? model.id !== "auto" : !["jev", "deepseek", "jev-auto", "skill", "skill-auto"].includes(model.id)) throw new Error("Unsupported phone model");
           const backend = config.terminal ? "terminal-auto" : model.id as Backend;
+          if (config.terminal && !bootstrapSent) {
+            const goal = terminalGoal(context);
+            const route = conversationRoute(goal, previousTerminal);
+            if (route?.kind === "reply") {
+              stream.push({ type: "start", partial: output });
+              completeText(route.text);
+              return;
+            }
+            currentTerminalGoal = route?.kind === "repeat" ? route.goal : goal;
+          }
           const environment = config.terminal ? {
             ...options?.env,
-            PHONE_TERMINAL_GOAL: terminalGoal(context),
+            PHONE_TERMINAL_GOAL: currentTerminalGoal!,
             PHONE_BENCH_TRIAL: `terminal-${randomUUID()}`,
           } : options?.env;
           const child = worker(backend, environment);
-          if (config.terminal && !bootstrapSent) pi.appendEntry("phone-terminal-route", { goal: terminalGoal(context), provider: providerId, transport: "own-android-mcp", adb: false });
+          if (config.terminal && !bootstrapSent) pi.appendEntry("phone-terminal-route", { goal: currentTerminalGoal, provider: providerId, transport: "own-android-mcp", adb: false });
           const abort = () => child.kill();
           options?.signal?.addEventListener("abort", abort, { once: true });
           try {
@@ -393,13 +428,7 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: { terminalText:
             if (done) {
               if (config.terminal) finalized = await child.finish(performance.now() - (startedAt ?? performance.now()));
               const completedText = config.terminal ? terminalSummary(finalized) : config.terminalText;
-              output.content.push({ type: "text", text: "" });
-              stream.push({ type: "text_start", contentIndex: 0, partial: output });
-              output.content[0] = { type: "text", text: completedText };
-              stream.push({ type: "text_delta", contentIndex: 0, delta: output.content[0].text, partial: output });
-              stream.push({ type: "text_end", contentIndex: 0, content: output.content[0].text, partial: output });
-              output.stopReason = "stop";
-              stream.push({ type: "done", reason: "stop", message: output });
+              completeText(completedText);
             } else {
               const toolCall = { type: "toolCall" as const, id: randomUUID(), name, arguments: args };
               output.content.push({ ...toolCall, arguments: {} });
