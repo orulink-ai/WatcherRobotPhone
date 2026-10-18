@@ -34,6 +34,68 @@ from terminal_runtime import _controls, _query_bars, _search_fields, screen_lock
 from window_state import focused_package
 
 
+def _spaced(value):
+    return " ".join(value.split())
+
+
+def _card_matches_title(card_title, requested):
+    requested = caption_title(requested)
+    if not requested or not card_title:
+        return False
+    if card_title == requested:
+        return True
+    # Navigation candidate only. Detail must independently prove the exact
+    # requested title before any interaction becomes available.
+    prefix = _spaced(requested) + " "
+    merged = _spaced(card_title)
+    return merged.startswith(prefix) and len(merged[len(prefix):]) >= 32
+
+
+def _photo_authors(nodes, size):
+    headers = [node for node in nodes if node["package"] == PACKAGE
+               and "on" in node["flags"] and "ena" in node["flags"]
+               and node["class"] == "TextView"
+               and node["resource_id"] == PACKAGE + ":id/nickNameTV"
+               and node["bounds"][1] < size[1] * .2 and node["text"].strip()]
+    if len(headers) > 1:
+        return None
+    return {headers[0]["text"].strip()} if headers else set()
+
+
+def _photo_identity(nodes, size, raw_caption):
+    """Prove a selected merged card by exact title + adjacent long body prefix."""
+    card = _spaced(caption_title(raw_caption) or "")
+    width, height = size
+    texts = [node for node in nodes if node["package"] == PACKAGE
+             and "on" in node["flags"] and node["class"] == "TextView"
+             and node["text"] and node["bounds"][2]-node["bounds"][0] >= .7*width]
+    matches = []
+    for title_node in texts:
+        title = caption_title(title_node["text"])
+        if not title or len(title) < 4 or title_node["bounds"][3]-title_node["bounds"][1] > height*.12:
+            continue
+        prefix = _spaced(title) + " "
+        if not card.startswith(prefix):
+            continue
+        summary = card[len(prefix):]
+        if len(summary) < 32:
+            continue
+        for body in texts:
+            if (body is title_node
+                    or not 0 <= body["bounds"][1]-title_node["bounds"][3] <= height*.04
+                    or abs(body["bounds"][0]-title_node["bounds"][0]) > width*.02
+                    or abs(body["bounds"][2]-title_node["bounds"][2]) > width*.05
+                    or not _spaced(body["text"]).startswith(summary)):
+                continue
+            matches.append({
+                "source": "xhs-adjacent-title-body-v1", "title": title,
+                "titleLabel": title_node["text"], "bodyLabel": body["text"],
+                "cardLabel": raw_caption, "matchedBodyPrefix": summary,
+                "titleBounds": title_node["bounds"], "bodyBounds": body["bounds"],
+            })
+    return matches[0] if len(matches) == 1 else None
+
+
 class ExperienceRuntimeError(RuntimeError):
     """Stable diagnostics without transport secrets or untrusted server prose."""
 
@@ -68,9 +130,18 @@ def _labels(nodes):
     ]
 
 
+def caption_title(label):
+    """Separate caption metadata at whitespace+#, never by fuzzy substring."""
+    if not isinstance(label, str):
+        return None
+    title = re.split(r"\s+#", label.strip(), maxsplit=1)[0].strip()
+    return title if title and not title.startswith("#") else None
+
+
 def _public_label(label):
+    label = caption_title(label)
     return (
-        bool(label.strip())
+        label is not None
         and not re.fullmatch(
             r"[\d\s.,:万亿千百/\-]+|(?:今天|昨天|前天)(?:\s.*)?|(?:点赞|收藏|已点赞|已收藏)\d*",
             label,
@@ -128,11 +199,12 @@ def result_cards(nodes, size):
             key=lambda node: (node["bounds"][1], node["bounds"][0]),
         )
         first_y = titles[0]["bounds"][1] if titles else None
-        title = (
+        raw_label = (
             titles[0]["text"]
             if titles and sum(abs(node["bounds"][1] - first_y) < 2 for node in titles) == 1
             else None
         )
+        title = caption_title(raw_label)
         cards.append(
             {
                 "id": parent["id"],
@@ -140,6 +212,7 @@ def result_cards(nodes, size):
                 "method": "click",
                 "role": "open_target",
                 "targetTitle": title,
+                "rawLabel": raw_label,
                 "memberLabels": [node["description"] or node["text"] for node in children],
                 "label": "打开本次搜索结果帖子：" + title
                 if title
@@ -149,19 +222,23 @@ def result_cards(nodes, size):
     return sorted(cards, key=lambda card: (card["bounds"][1], card["bounds"][0]))
 
 
-def _title_visible(nodes, title):
-    # Real XHS AX may omit/obfuscate resource ids. A caption starts with the
-    # exact bound title followed by hashtag metadata; arbitrary substrings fail.
-    return any(
-        node["package"] == PACKAGE
-        and "on" in node["flags"]
-        and any(
-            label == title or re.split(r"\s+#", label, maxsplit=1)[0] == title
+def _title_labels(nodes, title):
+    title = caption_title(title)
+    if title is None:
+        return []
+    return list(
+        dict.fromkeys(
+            label
+            for node in nodes
+            if node["package"] == PACKAGE and "on" in node["flags"]
             for label in (node["text"], node["description"])
-            if label
+            if label and caption_title(label) == title
         )
-        for node in nodes
-    )
+    )[:4]
+
+
+def _title_visible(nodes, title):
+    return bool(_title_labels(nodes, title))
 
 
 class ExperienceRuntime(PhoneRuntime):
@@ -216,6 +293,14 @@ class ExperienceRuntime(PhoneRuntime):
             json.dumps(self.snapshot, ensure_ascii=False, indent=2),
         )
 
+    def _retained_first_results(self, observation):
+        return (
+            self.task["target"]["kind"] == "first"
+            and not self._query_submitted
+            and observation.get("kind") == "search_results"
+            and observation.get("queryMatches") is True
+        )
+
     def _budget(self):
         if self.stopped:
             raise ExperienceRuntimeError("STOPPED")
@@ -225,15 +310,62 @@ class ExperienceRuntime(PhoneRuntime):
         ):
             self._stop("BUDGET")
 
-    def observe(self):
-        if self.stopped:
-            raise ExperienceRuntimeError("STOPPED")
+    def _capture_frame(self, focus_attempt):
+        """Keep AX, focus and image from one response under one observation id."""
         result = self.call("android_get_screen_state", {"include_screenshot": True})
         text = content_text(result)
         self.index += 1
         private_write(self.directory / f"observation-{self.index}.txt", text)
         nodes = own_nodes(text)
         package = focused_package(text)
+        image = None
+        images = [item for item in result.get("content", []) if item.get("type") == "image"]
+        if len(images) == 1:
+            try:
+                image_bytes = base64.b64decode(images[0]["data"], validate=True)
+                image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+                private_write(self.directory / f"observation-{self.index}.jpg", image_bytes)
+            except (KeyError, ValueError, OSError):
+                image = None
+        self.operations.append(
+            {
+                "name": "focus_observation",
+                "observation": self.index,
+                "focusAttempt": focus_attempt,
+                "focusedPackage": package,
+                "locked": screen_locked(nodes),
+                "pairedScreenshot": image is not None,
+                "readOnly": True,
+            }
+        )
+        return text, nodes, package, image
+
+    def observe(self):
+        if self.stopped:
+            raise ExperienceRuntimeError("STOPPED")
+        for attempt in range(4):
+            text, nodes, package, image = self._capture_frame(attempt)
+            # Never wait through a lock screen, reuse an older package, or pair
+            # a newly focused tree with an earlier transient frame's screenshot.
+            if package is not None or screen_locked(nodes) or attempt == 3:
+                break
+            self.operations.append(
+                {
+                    "name": "focus_stabilization",
+                    "attempt": attempt + 1,
+                    "observation": self.index,
+                    "readOnly": True,
+                }
+            )
+            start = time.perf_counter()
+            time.sleep(0.25)
+            self.phases.append(
+                {
+                    "kind": "wait",
+                    "name": "前台焦点稳定只读等待",
+                    "ms": (time.perf_counter() - start) * 1000,
+                }
+            )
         labels = _labels(nodes)
         observation = {
             "kind": "screen",
@@ -260,15 +392,6 @@ class ExperienceRuntime(PhoneRuntime):
         if package is None:
             self._stop("UNKNOWN_FOCUS")
         size = screen_dimensions(text)
-        image = None
-        images = [item for item in result.get("content", []) if item.get("type") == "image"]
-        if len(images) == 1:
-            try:
-                image_bytes = base64.b64decode(images[0]["data"], validate=True)
-                image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-                private_write(self.directory / f"observation-{self.index}.jpg", image_bytes)
-            except (KeyError, ValueError, OSError):
-                image = None
         controls = normalized_controls(nodes) if package == PACKAGE else []
         actions = {
             "WAIT": {
@@ -303,9 +426,16 @@ class ExperienceRuntime(PhoneRuntime):
             "cancel": "正向目标已验证；仅取消本次 desired 中指定的项目，逐项回读验证为 false。",
             "done": "本次显式目标均已回读验证。",
         }[self.progress.phase]
+        goal = self.task["goal"]
+        if self._retained_first_results(observation):
+            next_goal = (
+                "当前是保留结果，需打开查询输入框，核对当前值后重新提交本次查询"
+                f"“{self.task['query']}”，以定位全局首篇。下一步选择编辑查询候选；等待旧结果不会完成这次查询提交。"
+            )
+            goal += "\n当前阶段：" + next_goal
         self.snapshot = {
             "state": {
-                "goal": self.task["goal"],
+                "goal": goal,
                 "nextGoal": next_goal,
                 "taskKind": "experience",
                 "stage": self.progress.phase,
@@ -366,7 +496,7 @@ class ExperienceRuntime(PhoneRuntime):
                 cards = [
                     card
                     for card in cards
-                    if card["targetTitle"] == target["title"]
+                    if _card_matches_title(card["targetTitle"], target["title"])
                     and (
                         "author" not in target
                         or any(
@@ -379,7 +509,12 @@ class ExperienceRuntime(PhoneRuntime):
                 card = cards[0]
                 actions["CLICK:" + card["id"]] = card
             observed["resultCandidates"] = [
-                {"title": card["targetTitle"], "bounds": card["bounds"]} for card in cards
+                {
+                    "title": card["targetTitle"],
+                    "rawLabel": card["rawLabel"],
+                    "bounds": card["bounds"],
+                }
+                for card in cards
             ]
         for control in controls:
             if control["label"] == "搜索" and (not fields or query == self.task["query"]):
@@ -408,6 +543,10 @@ class ExperienceRuntime(PhoneRuntime):
             }
         if not fields:
             for bar in _query_bars(_controls(nodes, PACKAGE), nodes, text, query):
+                if self._retained_first_results(observed):
+                    bar["label"] = (
+                        f"打开查询输入框，重新提交“{self.task['query']}”以定位本次全局首篇"
+                    )
                 actions["CLICK:" + bar["id"]] = bar
         actions["CLICK:experience-back"] = {
             "method": "back",
@@ -420,15 +559,28 @@ class ExperienceRuntime(PhoneRuntime):
         labels = _labels(nodes)
         author = self.bound_target.get("author")
         authors = {label[2:] for label in labels if label.startswith("作者") and len(label) > 2}
+        photo_authors = _photo_authors(nodes, size)
+        if photo_authors is None:
+            authors = set()
+        else:
+            authors |= photo_authors
         visible_author = authors == {author} if author else len(authors) == 1
+        identity = None
+        title_matches = _title_visible(nodes, title)
+        if not title_matches and visible_author and self.initial_state is None:
+            identity = _photo_identity(nodes, size, self.bound_target["rawLabel"])
+            title_matches = identity is not None and (
+                self.task["target"]["kind"] == "first"
+                or identity["title"] == caption_title(self.task["target"]["title"])
+            )
         favorites = [
             control
             for control in controls
-            if re.fullmatch(r"(?:已)?收藏(?:[\d.万千亿,]+)?", control["label"])
+            if re.fullmatch(r"(?:已)?收藏(?:\s*[\d.万千亿,]+)?", control["label"].strip())
             and control["bounds"][1] > size[1] * 0.8
         ]
         if not (
-            _title_visible(nodes, title)
+            title_matches
             and visible_author
             and len(favorites) == 1
             and image is not None
@@ -440,6 +592,10 @@ class ExperienceRuntime(PhoneRuntime):
         if like is None:
             observed["kind"] = "ambiguous_toolbar"
             return
+        if identity and title_matches:
+            self.bound_target["cardTitle"] = self.bound_target["title"]
+            self.bound_target["title"] = title = identity["title"]
+            self.bound_target["photoIdentity"] = identity
         like_evidence = icon_state(image, like["bounds"], "like", size)
         collect_evidence = icon_state(image, favorite["bounds"], "collect", size)
         observed.update(
@@ -452,6 +608,8 @@ class ExperienceRuntime(PhoneRuntime):
             "liked": like_evidence,
             "collected": collect_evidence,
             "targetTitle": title,
+            "targetLabels": _title_labels(nodes, title),
+            "photoIdentity": self.bound_target.get("photoIdentity"),
             "author": author,
             "observation": self.index,
         }
@@ -609,6 +767,7 @@ class ExperienceRuntime(PhoneRuntime):
                 if action["role"] == "open_target":
                     self.bound_target = {
                         "title": action["targetTitle"],
+                        "rawLabel": action["rawLabel"],
                         "source": "current-search-result",
                         "selectedObservation": self.index,
                     }

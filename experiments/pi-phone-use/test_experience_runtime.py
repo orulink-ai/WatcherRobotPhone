@@ -607,3 +607,271 @@ def test_missing_image_during_post_toggle_settles_without_redispatch(tmp_path, m
     bind(phone)
     assert phone.act(choose(phone, "collect"))["done"]
     assert len([name for name, _ in mcp.calls if name == "android_click_node"]) == 2
+
+
+def unfocused(value):
+    copy = deepcopy(value)
+    copy["content"][0]["text"] = copy["content"][0]["text"].replace("focused:true", "focused:false")
+    return copy
+
+
+def test_after_open_transient_focus_uses_read_only_reobserve_and_preserves_frames(
+    tmp_path, monkeypatch
+):
+    launcher = screen(package="com.miui.home")
+    phone, mcp = runtime(
+        tmp_path, monkeypatch, [launcher, launcher, unfocused(screen()), screen(node("a", "搜索"))]
+    )
+    waits = []
+    monkeypatch.setattr("experience_runtime.time.sleep", waits.append)
+    phone.observe()
+    observed = phone.act("OPEN_APP:" + PACKAGE)
+    assert observed["state"]["focusedPackage"] == PACKAGE
+    assert [name for name, _ in mcp.calls].count("android_open_app") == 1
+    assert all(name in {"android_get_screen_state", "android_open_app"} for name, _ in mcp.calls)
+    assert phone.index == 4
+    assert all((phone.directory / f"observation-{index}.txt").exists() for index in range(1, 5))
+    assert all((phone.directory / f"observation-{index}.jpg").exists() for index in range(1, 5))
+    frames = [item for item in phone.operations if item["name"] == "focus_observation"]
+    assert [(item["observation"], item["focusedPackage"]) for item in frames][-2:] == [
+        (3, None),
+        (4, PACKAGE),
+    ]
+    assert waits.count(0.25) == 2  # one post-action wait, one read-only focus wait
+
+
+def test_missing_focus_exhausts_three_retries_without_using_previous_focus(tmp_path, monkeypatch):
+    phone, mcp = runtime(tmp_path, monkeypatch, [screen(), *[unfocused(screen())] * 4])
+    phone.observe()
+    waits = []
+    monkeypatch.setattr("experience_runtime.time.sleep", waits.append)
+    with pytest.raises(ExperienceRuntimeError) as caught:
+        phone.observe()
+    assert caught.value.code == "UNKNOWN_FOCUS"
+    assert len(mcp.calls) == 5
+    assert waits == [0.25, 0.25, 0.25]
+    assert phone.snapshot["state"]["observation"]["focusedPackage"] is None
+    assert phone.finish()["status"] == "failed"
+
+
+def test_focus_retry_stops_immediately_on_locked_frame(tmp_path, monkeypatch):
+    locked = screen(
+        node("a", resource="com.android.systemui:id/keyguard_root_view"),
+        package="com.android.systemui",
+    )
+    phone, mcp = runtime(tmp_path, monkeypatch, [unfocused(screen()), locked, screen()])
+    with pytest.raises(ExperienceRuntimeError) as caught:
+        phone.observe()
+    assert caught.value.code == "LOCKED"
+    assert len(mcp.calls) == 2
+    assert phone.index == 2
+
+
+def test_focus_recovery_uses_screenshot_from_same_new_response_as_ax(tmp_path, monkeypatch):
+    phone, mcp = runtime(
+        tmp_path,
+        monkeypatch,
+        [
+            results(),
+            results(),
+            unfocused(detail(collected=True)),
+            detail(collected=False),
+        ],
+    )
+    observed = bind(phone)
+    assert not observed["done"]
+    assert observed["state"]["observation"]["collected"] is False
+    assert choose(phone, "collect")
+    assert phone.index == 4
+    assert len([name for name, _ in mcp.calls if name == "android_click_node"]) == 1
+
+
+@pytest.mark.parametrize(
+    "label,expected",
+    [
+        ("露营省钱新手必备干货→之气罐篇 #露营装备  #露营必备", "露营省钱新手必备干货→之气罐篇"),
+        (
+            "露营省钱新手必备干货→之气罐篇 #露营装备[话题]# #经验分享...",
+            "露营省钱新手必备干货→之气罐篇",
+        ),
+        ("没有话题的原始标题", "没有话题的原始标题"),
+        ("", None),
+        ("   ", None),
+        ("#只有话题 #露营", None),
+        (" #只有话题[话题]#", None),
+    ],
+)
+def test_caption_title_normalization_is_exact_and_rejects_tag_only(label, expected):
+    from experience_runtime import caption_title
+
+    assert caption_title(label) == expected
+
+
+def test_first_card_caption_and_detail_topic_formats_share_exact_title_and_keep_raw_evidence(
+    tmp_path, monkeypatch
+):
+    title = "露营省钱新手必备干货→之气罐篇"
+    raw = title + " #露营装备  #露营必备 #经验分享"
+    detail_title = title + " #露营装备[话题]# #露营必备[话题]#"
+    phone, mcp = runtime(
+        tmp_path,
+        monkeypatch,
+        [
+            results(titles=(raw, "第二篇")),
+            results(titles=(raw, "第二篇")),
+            detail(title=detail_title, collected=True),
+        ],
+    )
+    observed = bind(phone)
+    assert observed["done"]
+    assert observed["state"]["boundTarget"]["title"] == title
+    assert observed["state"]["boundTarget"]["rawLabel"] == raw
+    assert observed["state"]["observation"]["evidence"]["targetLabels"][0].startswith(title + " #")
+    assert len([name for name, _ in mcp.calls if name == "android_click_node"]) == 1
+
+
+def test_specified_caption_title_is_canonicalized_without_substring_match(tmp_path, monkeypatch):
+    phone, _ = runtime(
+        tmp_path,
+        monkeypatch,
+        [results(titles=("精确标题 #卡片话题", "精确标题附加 #话题"))],
+        task(target={"kind": "title", "title": "精确标题 #用户带的话题"}),
+        search_submitted=False,
+    )
+    phone.observe()
+    assert phone.actions[choose(phone, "open_target")]["targetTitle"] == "精确标题"
+
+
+def test_caption_title_collision_keeps_both_candidates_and_refuses_ambiguous_specified_target(
+    tmp_path, monkeypatch
+):
+    phone, _ = runtime(
+        tmp_path,
+        monkeypatch,
+        [results(titles=("相同标题 #话题甲", "相同标题 #话题乙"))],
+        task(target={"kind": "title", "title": "相同标题"}),
+        search_submitted=False,
+    )
+    observed = phone.observe()
+    assert [item["title"] for item in observed["state"]["observation"]["resultCandidates"]] == [
+        "相同标题",
+        "相同标题",
+    ]
+    assert not any(action["role"] == "open_target" for action in phone.actions.values())
+
+
+def test_tag_only_first_card_remains_barrier_instead_of_selecting_second(tmp_path, monkeypatch):
+    phone, _ = runtime(tmp_path, monkeypatch, [results(titles=("#纯话题 #露营", "第二篇正常标题"))])
+    phone.observe()
+    assert not any(action["role"] == "open_target" for action in phone.actions.values())
+
+
+def test_retained_same_query_first_explains_research_goal_and_existing_edit_choice(
+    tmp_path, monkeypatch
+):
+    phone, _ = runtime(tmp_path, monkeypatch, [results()], search_submitted=False)
+    observed = phone.observe()
+    state = observed["state"]
+    for field in ("goal", "nextGoal"):
+        assert "保留结果" in state[field]
+        assert "打开查询输入框" in state[field]
+        assert "重新提交" in state[field]
+    assert "重新提交" in phone.actions[choose(phone, "search_field")]["label"]
+    assert set(observed["options"]) == {"WAIT", "BLOCKED", "CLICK:node_1", "CLICK:experience-back"}
+
+
+@pytest.mark.parametrize(
+    "query,target",
+    [
+        ("其它查询", {"kind": "first"}),
+        ("动态搜索词", {"kind": "title", "title": TITLE}),
+    ],
+)
+def test_normal_query_or_exact_title_keeps_original_goal_without_research_constraint(
+    tmp_path, monkeypatch, query, target
+):
+    spec = task(target=target)
+    phone, _ = runtime(tmp_path, monkeypatch, [results(query=query)], spec, search_submitted=False)
+    observed = phone.observe()
+    assert observed["state"]["goal"] == spec["goal"]
+    assert "保留结果" not in observed["state"]["nextGoal"]
+    assert "重新提交" not in phone.actions[choose(phone, "search_field")]["label"]
+
+
+# Necessary XHS-only text/geometry extracted from terminal-17682c38 AX frames
+# 8/9. System notifications and unrelated posts are deliberately not fixtures.
+PHOTO_TITLE="新手露营装备必备清单✅照着带就够⛺️"
+PHOTO_SUMMARY="✅ 按类别收拾不遗漏： 🏕️ 住宿睡眠： 帐篷 + 防潮垫 + 睡垫 + 睡袋 + 枕头 过夜一定要准备好，晚上睡不好"
+PHOTO_BODY="✅ 按类别收拾不遗漏：   🏕️ 住宿睡眠： 帐篷 + 防潮垫 + 睡垫 + 睡袋 + 枕头 过夜一定要准备好，晚上睡不好真的会崩溃🥲💤   🪑 桌椅营地： 蛋卷桌 + 克米特椅 + 月亮椅 ...truncated"
+
+
+def photo_detail(title=PHOTO_TITLE,body=PHOTO_BODY,*,extra_author=False,body_top=2492):
+    nodes=[
+        node("a","野游家",resource=PACKAGE+":id/nickNameTV",bounds=(314,206,470,266),flags="on,ena"),
+        node("b",title,bounds=(53,2387,1387,2457),flags="on,foc,ena"),
+        node("c",body,bounds=(53,body_top,1387,3200),flags="on,foc,ena"),
+        node("d",description="点赞 99",klass="Button",bounds=(723,2948,933,3144)),
+        node("e",description="收藏 103",klass="Button",bounds=(933,2948,1171,3144)),
+    ]
+    if extra_author:
+        nodes.append(node("f","另一作者",resource=PACKAGE+":id/nickNameTV",bounds=(500,206,670,266),flags="on,ena"))
+    value=screen(*nodes)
+    value["content"][0]["text"]=value["content"][0]["text"].replace("screen:1080x2340","screen:1440x3200")
+    return value
+
+
+def test_real_photo_title_and_adjacent_long_body_align_selected_card_then_bind_exact_title(tmp_path,monkeypatch):
+    merged=PHOTO_TITLE+" "+PHOTO_SUMMARY
+    phone,_=runtime(tmp_path,monkeypatch,[results(titles=(merged,"第二篇")),results(titles=(merged,"第二篇")),photo_detail()],
+                    task(desired={"collected":False}))
+    observed=bind(phone)
+    assert observed["done"]
+    assert observed["state"]["boundTarget"]["title"]==PHOTO_TITLE
+    assert observed["state"]["boundTarget"]["rawLabel"]==merged
+    assert observed["state"]["boundTarget"]["author"]=="野游家"
+    evidence=observed["state"]["observation"]["evidence"]["photoIdentity"]
+    assert evidence["titleLabel"]==PHOTO_TITLE
+    assert evidence["bodyLabel"]==PHOTO_BODY
+    assert evidence["source"]=="xhs-adjacent-title-body-v1"
+
+
+@pytest.mark.parametrize("body,title,extra_author,body_top",[
+    ("不相干的另一个长正文"*10,PHOTO_TITLE,False,2492),
+    (PHOTO_BODY,PHOTO_TITLE,True,2492),
+    (PHOTO_BODY,PHOTO_TITLE,False,2900),
+    (PHOTO_BODY,"新手露营装备必备清单",False,2492),
+])
+def test_merged_photo_identity_rejects_wrong_body_author_gap_or_short_title(tmp_path,monkeypatch,body,title,extra_author,body_top):
+    merged=PHOTO_TITLE+" "+PHOTO_SUMMARY
+    phone,_=runtime(tmp_path,monkeypatch,[results(titles=(merged,"第二篇")),results(titles=(merged,"第二篇")),
+                                        photo_detail(title,body,extra_author=extra_author,body_top=body_top)])
+    observed=bind(phone)
+    assert not observed["done"]
+    assert not any(action["role"] in {"like","collect"} for action in phone.actions.values())
+
+
+def test_specified_exact_title_can_open_merged_caption_but_requires_exact_detail_title(tmp_path,monkeypatch):
+    merged=PHOTO_TITLE+" "+PHOTO_SUMMARY
+    phone,_=runtime(tmp_path,monkeypatch,[results(titles=(merged,"第二篇")),results(titles=(merged,"第二篇")),photo_detail()],
+                    task(target={"kind":"title","title":PHOTO_TITLE},desired={"collected":False}))
+    assert bind(phone)["done"]
+
+
+def test_specified_title_prefix_cannot_authorize_photo_writes_even_with_body_evidence(tmp_path,monkeypatch):
+    requested="相近标题"
+    actual=requested+" 其他内容"
+    merged=actual+" "+PHOTO_SUMMARY
+    phone,_=runtime(tmp_path,monkeypatch,[results(titles=(merged,"第二篇")),results(titles=(merged,"第二篇")),
+                                        photo_detail(actual)],
+                    task(target={"kind":"title","title":requested}))
+    observed=bind(phone)
+    assert not observed["done"]
+    assert not any(action["role"] in {"like","collect"} for action in phone.actions.values())
+
+
+def test_two_merged_card_matches_do_not_guess_specified_target(tmp_path,monkeypatch):
+    merged=PHOTO_TITLE+" "+PHOTO_SUMMARY
+    phone,_=runtime(tmp_path,monkeypatch,[results(titles=(merged,merged+"附加"))],
+                    task(target={"kind":"title","title":PHOTO_TITLE}))
+    phone.observe()
+    assert not any(action["role"]=="open_target" for action in phone.actions.values())
