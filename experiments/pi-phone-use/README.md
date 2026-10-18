@@ -174,3 +174,10 @@ export PHONE_BENCH_RECIPE="$PHONE_BENCH_OUTPUT_DIR/skill-bundle/recipe.json"
 离线 TDD 覆盖决策回退及 PI 工具调用顺序，具体边界见 [策略与验证计划](../../docs/plans/pi-jev-fallback.md)。历史研究证据保持原样；新策略的离线测试通过不代表已取得新一轮实机耗时或成功率。该扩展仍是专用任务入口，未全局安装为默认 PI agent。
 
 命令行 worker 的输入等待可取消，SIGTERM 会在等待输入或模型响应时触发清理、保存失败结果并以 143 退出。同步 MCP HTTP 调用正在阻塞时仍可能需要父进程的有界强制退出；这种情况下不保证会话终止已完成，也不会自动重放动作。
+
+
+## 4B Instant 局域网后端
+
+本地模型宿主机的无 Key 决策接口为 `http://192.168.50.26:8094/v1/systemone`。选择现有 `startlux-instant` provider，并设置 `PHONE_BENCH_STARTLUX_ALLOW_LAN=1` 和 `PHONE_BENCH_STARTLUX_INSTANT_URL`；默认 loopback 配置不变。接口也支持 `/api/alpha/decisions` 的 Jev 多问题请求形状，但模型名应改为 `startlux-4b-instant`。
+
+部署、启停、示例请求和已验证范围见 [4B Instant 后端说明](../startlux-backend/README.md)。
