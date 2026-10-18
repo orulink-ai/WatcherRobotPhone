@@ -1,0 +1,87 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Kotlin compiler caches (kotlin Gradle plugin, e.g. .kotlin/sessions)
+.kotlin/
+
+# Android Studio / IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+.navigation/
+captures/
+
+# Local configuration
+local.properties
+keystore.properties
+
+# Keystores (sensitive)
+*.jks
+*.keystore
+
+# Local release signing material (keystore, plaintext credentials, certs) — NEVER commit
+.release/
+
+# Environment / Secrets
+.env
+.env.*
+!.env.example
+.secrets
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Kotlin
+*.class
+
+# APK files (build outputs)
+*.apk
+*.ap_
+*.aab
+# Exception: test fixture APKs needed for E2E tests
+!e2e-tests/src/test/resources/*.apk
+
+# Generated files
+gen/
+out/
+
+# E2E test build artifacts
+e2e-tests/bin/
+
+# Android profiling
+*.hprof
+
+# Crash logs
+crash-reports/
+
+# Coverage reports
+jacoco/
+
+# Lint reports
+lint-results*
+
+# Test results (keep in CI artifacts, not in repo)
+test-results/
+
+# Native binaries in jniLibs (build artifacts — cloudflared from make compile-cloudflared, ngrok from Gradle extractNgrokNative)
+app/src/main/jniLibs/
+
+# MCP client configuration (contains tokens)
+.mcp.json
+
+# Claude Code local settings
+.claude/settings.json
+
+# Channel plugin
+channel-plugin/node_modules/
+app/hs_err_*.log
+app/replay_*.log
+
+# Cached DB-IP source CSV for the geolocation DB generator (the DB itself is generated under build/)
+.dbip-cache/
+
+privacy-benchmark/.cache/

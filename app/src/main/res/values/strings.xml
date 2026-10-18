@@ -1,0 +1,342 @@
+<resources>
+    <string name="app_name">Android Remote Control MCP</string>
+    <string name="share_target_label">Android Remote Control MCP</string>
+
+    <!-- Accessibility Service -->
+    <string name="accessibility_service_description">Provides remote control capabilities via MCP protocol. Allows introspecting UI elements and performing actions on the device.</string>
+
+    <!-- Notification Channel -->
+    <string name="notification_channel_mcp_server_id">mcp_server_channel</string>
+    <string name="notification_channel_mcp_server_name">MCP Server</string>
+    <!-- Notification Content -->
+    <string name="notification_mcp_server_title">MCP Server Running</string>
+
+    <!-- App Bar -->
+    <string name="app_bar_title">MCP Remote Control</string>
+
+    <!-- Tabs -->
+    <string name="tab_server">Server</string>
+    <string name="tab_settings">Settings</string>
+    <string name="tab_about">About</string>
+
+    <!-- Settings Sub-pages -->
+    <string name="settings_general_title">General</string>
+    <string name="settings_general_subtitle">Port, address, device, auto-start</string>
+    <string name="settings_access_title">Access</string>
+    <string name="settings_access_subtitle">OAuth, bearer token, connected clients</string>
+    <string name="settings_security_title">Security</string>
+    <string name="settings_security_subtitle">HTTPS, certificate</string>
+    <string name="settings_tunnel_title">Tunnel</string>
+    <string name="settings_tunnel_subtitle">Cloudflare, ngrok</string>
+    <string name="settings_mcp_tools_title">MCP Tools</string>
+    <string name="settings_mcp_tools_subtitle">Enable or disable tools</string>
+    <string name="settings_mcp_tools_placeholder">Tool permissions — available in next update</string>
+    <string name="settings_mcp_tools_missing_permission">Permission not granted — these tools are hidden from clients. Tap to grant.</string>
+    <string name="settings_mcp_tools_param_missing_permission">Permission not granted — this option is unavailable. Tap to grant.</string>
+    <string name="settings_permissions_title">Permissions</string>
+    <string name="settings_permissions_subtitle">Accessibility, camera, microphone</string>
+    <string name="settings_storage_title">Storage</string>
+    <string name="settings_storage_subtitle">Storage locations, file limits</string>
+
+    <!-- About Screen -->
+    <string name="about_author_section">Author</string>
+    <string name="about_author_name">Daniele Salvatore Albano</string>
+    <string name="about_author_email">d.albano@gmail.com</string>
+    <string name="about_author_linkedin">linkedin.com/in/danielesalvatorealbano</string>
+    <string name="about_author_x">x.com/daniele_dll</string>
+    <string name="about_links_section">Links</string>
+    <string name="about_link_github">GitHub Repository</string>
+    <string name="about_link_license">MIT License</string>
+    <string name="about_link_issues">Report an Issue</string>
+    <string name="about_attributions_section">Attributions</string>
+    <string name="about_attribution_dbip">IP geolocation data by DB-IP (db-ip.com), licensed under CC BY 4.0.</string>
+    <string name="about_attribution_privacy_model">Privacy Mode PII detection model by Ai4Privacy (MIT license). Built with Llama.</string>
+    <string name="about_footer">Open Source, MIT License</string>
+
+    <!-- Clipboard -->
+    <string name="copied_to_clipboard">Copied to clipboard</string>
+
+    <!-- Server Status -->
+    <string name="server_status_title">Server Status</string>
+    <string name="server_status_running">Running</string>
+    <string name="server_status_stopped">Stopped</string>
+    <string name="server_status_starting">Starting…</string>
+    <string name="server_status_stopping">Stopping…</string>
+    <string name="server_status_error">Error: %1$s</string>
+    <string name="server_action_start">Start</string>
+    <string name="server_action_stop">Stop</string>
+
+    <!-- Configuration -->
+    <string name="configuration_title">Configuration</string>
+    <string name="config_binding_address_label">Binding Address</string>
+    <string name="config_binding_localhost">Localhost (127.0.0.1)</string>
+    <string name="config_binding_network">Network (0.0.0.0)</string>
+    <string name="config_port_label">Port</string>
+    <string name="config_device_slug_label">Device Slug (optional)</string>
+    <string name="config_device_slug_hint">e.g., pixel7, work_phone</string>
+    <string name="config_bearer_token_label">Bearer Token</string>
+    <string name="config_token_show">Show token</string>
+    <string name="config_token_hide">Hide token</string>
+    <string name="config_token_copy">Copy token</string>
+    <string name="config_token_regenerate">Regenerate token</string>
+    <string name="config_token_clear">Clear token</string>
+    <string name="config_bearer_token_empty_warning_title">Authentication disabled</string>
+    <string name="config_bearer_token_empty_warning_body">The bearer token is empty, so the MCP server accepts unauthenticated requests from anyone who can reach it. Stop the server (if running), then press Regenerate to enable authentication.</string>
+    <string name="config_auto_start_label">Auto-start on boot</string>
+    <string name="config_hide_from_recents_label">Hide from recents</string>
+    <string name="config_hide_from_recents_description">Exclude the app from Android\'s recent apps overview.</string>
+    <string name="config_tool_call_indicator_label">Show tool-call indicator</string>
+    <string name="config_tool_call_indicator_description">Display a privacy-safe overlay while the MCP controls this device.</string>
+    <string name="config_https_enabled_label">Enable HTTPS</string>
+    <string name="config_certificate_title">HTTPS Certificate</string>
+    <string name="config_cert_auto_generated">Auto-generated self-signed</string>
+    <string name="config_cert_custom">Custom certificate (.p12/.pfx)</string>
+    <string name="config_hostname_label">Certificate hostname</string>
+
+    <!-- Network Security Warning -->
+    <string name="network_warning_title">Network Exposure Warning</string>
+    <string name="network_warning_message">Binding to 0.0.0.0 makes the MCP server accessible to:\n\n\u2022 All devices on your current WiFi network\n\u2022 Devices connected to your hotspot\n\u2022 Potentially other devices depending on network configuration\n\nThis is a SECURITY RISK on public/untrusted networks.\n\nOnly use this option on trusted private networks.</string>
+    <string name="network_warning_confirm">I Understand, Continue</string>
+    <string name="network_warning_cancel">Cancel</string>
+
+    <!-- Permissions -->
+    <string name="permissions_title">Permissions</string>
+    <string name="permission_accessibility">Accessibility Service</string>
+    <string name="permission_notifications">Notifications</string>
+    <string name="permission_enable">Enable</string>
+    <string name="permission_enabled">Enabled</string>
+    <string name="permission_granted">Granted</string>
+    <string name="permission_grant">Grant</string>
+    <string name="permission_camera">Camera</string>
+    <string name="permission_microphone">Microphone</string>
+    <string name="permission_notification_listener">Notification Listener</string>
+    <string name="permission_location">Location</string>
+
+    <!-- Permissions screen: section headers -->
+    <string name="permission_section_required_title">Required</string>
+    <string name="permission_section_required_subtitle">Needed for the app to control your device.</string>
+    <string name="permission_section_required_if_title">Required if you use a feature</string>
+    <string name="permission_section_required_if_subtitle">Grant only the capabilities you plan to use.</string>
+    <string name="permission_section_optional_title">Optional</string>
+    <string name="permission_section_optional_subtitle">Nice to have; everything works without it.</string>
+    <!-- Permissions screen: per-permission rationale (default / foss values) -->
+    <string name="permission_accessibility_rationale">Reads the screen and performs taps, swipes, and typing.</string>
+    <string name="permission_notifications_rationale">OAuth approval prompts, Event Channel alerts, and server status.</string>
+    <string name="permission_notification_listener_rationale">Read and act on device notifications.</string>
+    <string name="permission_camera_rationale">Take photos and record video.</string>
+    <string name="permission_location_rationale">Read GPS position.</string>
+    <string name="permission_microphone_rationale">Adds audio to recorded video.</string>
+
+    <!-- Permission Warning (main screen: accessibility is the one required permission) -->
+    <string name="permission_warning_title">Accessibility permission required</string>
+    <string name="permission_warning_action">Go to permissions</string>
+    <string name="server_pending_approvals_title">%1$d pending connection approval(s)</string>
+    <string name="server_pending_approvals_action">Review</string>
+
+    <!-- Network Access Suggestion (main screen: localhost-only bind with no tunnel) -->
+    <string name="server_network_access_suggestion_title">Reachable from this device only</string>
+    <string name="server_network_access_suggestion_wifi">Enable Wi-Fi access</string>
+    <string name="server_network_access_suggestion_tunnel">Set up tunnel</string>
+
+    <!-- Battery Optimization -->
+    <string name="battery_optimization_card_title">Keep the server running</string>
+    <string name="battery_optimization_card_action">Disable battery optimization</string>
+
+    <!-- Server Logs -->
+    <string name="server_logs_title">Server Logs</string>
+    <string name="server_logs_empty">No log entries yet</string>
+    <string name="server_logs_show_more">Show more</string>
+    <string name="server_logs_clear">Clear logs</string>
+    <string name="server_logs_clear_dialog_title">Clear logs?</string>
+    <string name="server_logs_clear_dialog_body">All server log entries will be permanently deleted.</string>
+    <string name="server_logs_clear_dialog_confirm">Clear</string>
+    <string name="server_logs_clear_dialog_cancel">Cancel</string>
+    <string name="server_logs_type_tool_call">Tool calls</string>
+    <string name="server_logs_type_tunnel">Tunnel</string>
+    <string name="server_logs_type_server">Server</string>
+    <string name="server_logs_type_oauth">OAuth</string>
+    <string name="server_logs_type_auth">Auth</string>
+    <string name="server_logs_type_channel">Channel</string>
+    <string name="server_logs_type_settings">Settings</string>
+    <string name="server_logs_type_privacy">Privacy</string>
+
+    <!-- Remote Access / Tunnel -->
+    <string name="remote_access_title">Remote Access</string>
+    <string name="remote_access_enabled_label">Enable Remote Access</string>
+    <string name="remote_access_provider_label">Tunnel Provider</string>
+    <string name="remote_access_provider_cloudflare">Cloudflare</string>
+    <string name="remote_access_provider_cloudflare_desc">No account required</string>
+    <string name="remote_access_provider_ngrok">ngrok</string>
+    <string name="remote_access_provider_ngrok_desc">Account required</string>
+    <string name="remote_access_ngrok_authtoken_label">ngrok Authtoken</string>
+    <string name="remote_access_ngrok_domain_label">Domain (optional)</string>
+    <string name="remote_access_ngrok_domain_hint">Leave empty for auto-assigned</string>
+    <string name="remote_access_status_disconnected">Disconnected</string>
+    <string name="remote_access_status_connecting">Connecting…</string>
+    <string name="remote_access_status_connected">Connected</string>
+    <string name="remote_access_status_error">Error: %1$s</string>
+    <string name="remote_access_public_url_label">Public URL</string>
+    <string name="remote_access_ngrok_unsupported">ngrok is not available on this device (requires arm64-v8a or x86_64)</string>
+    <string name="remote_access_cloudflare_mode_label">Cloudflare Mode</string>
+    <string name="remote_access_cloudflare_mode_free">Free</string>
+    <string name="remote_access_cloudflare_mode_free_desc">Random temporary URL, no account</string>
+    <string name="remote_access_cloudflare_mode_token">With Token</string>
+    <string name="remote_access_cloudflare_mode_token_desc">Static hostname via your Cloudflare account</string>
+    <string name="remote_access_cloudflare_token_label">Cloudflare Tunnel Token</string>
+    <string name="remote_access_cloudflare_extra_args_label">Extra Arguments</string>
+    <string name="remote_access_cloudflare_extra_args_hint">--edge region1.v2.argotunnel.com:7844</string>
+    <string name="remote_access_cloudflare_extra_args_help">Optional flags passed to cloudflared (e.g. specify --edge to bypass DNS issues)</string>
+    <string name="remote_access_cloudflare_service_url_help">In your Cloudflare dashboard, set this tunnel\'s Public Hostname → Service to:</string>
+    <string name="remote_access_cloudflare_service_url_copy">Copy service URL</string>
+    <string name="remote_access_https_disabled_warning">Remote access is unavailable while HTTPS is enabled. Disable HTTPS to use a tunnel.</string>
+    <string name="remote_access_no_route_configured">No route configured</string>
+    <string name="remote_access_route_misconfigured">Route does not point to this server</string>
+
+    <!-- Connection Info -->
+    <string name="connection_info_title">Connection Info</string>
+    <string name="connection_info_ip">IP Address</string>
+    <string name="connection_info_port">Port</string>
+    <string name="connection_info_url">URL</string>
+    <string name="connection_info_token">Token</string>
+    <string name="connection_info_copy_all">Copy All</string>
+    <string name="connection_info_share">Share</string>
+
+    <!-- Storage Locations -->
+    <string name="storage_locations_title">Storage Locations</string>
+    <string name="storage_locations_description">Add storage locations to enable file operations via MCP tools. Each location grants access to a directory you choose.</string>
+    <string name="storage_location_no_locations">No storage locations added. Tap + to add one.</string>
+    <string name="storage_location_path_label">Path: %1$s</string>
+    <string name="storage_location_add_button">Add Storage Location</string>
+    <string name="storage_location_add_dialog_title">Add Storage Location</string>
+    <string name="storage_location_add_dialog_description_label">Description (optional)</string>
+    <string name="storage_location_add_dialog_description_hint">e.g., Project files, Downloads</string>
+    <string name="storage_location_add_dialog_browse">Browse</string>
+    <string name="storage_location_add_dialog_selected">Selected: %1$s</string>
+    <string name="storage_location_add_dialog_no_selection">No directory selected</string>
+    <string name="storage_location_add_dialog_add">Add</string>
+    <string name="storage_location_add_dialog_cancel">Cancel</string>
+    <string name="storage_location_add_dialog_duplicate">This directory is already added.</string>
+    <string name="storage_location_description_counter">%1$d / %2$d</string>
+    <string name="storage_location_edit_dialog_title">Edit Description</string>
+    <string name="storage_location_edit_dialog_save">Save</string>
+    <string name="storage_location_delete_dialog_title">Remove Storage Location</string>
+    <string name="storage_location_delete_dialog_message">Remove \"%1$s\"? The MCP server will no longer be able to access files in this location.</string>
+    <string name="storage_location_delete_dialog_confirm">Remove</string>
+    <string name="storage_location_delete_dialog_cancel">Cancel</string>
+    <string name="storage_location_allow_write_label">Allow Write</string>
+    <string name="storage_location_allow_delete_label">Allow Delete</string>
+    <string name="storage_builtin_locations_title">Built-in Locations</string>
+    <string name="storage_builtin_locations_description">Always available. Use MediaStore to read and write files without additional setup.</string>
+    <string name="storage_user_locations_title">User Locations</string>
+    <string name="storage_builtin_grant_all_files">Grant access to all files</string>
+    <string name="storage_builtin_all_files_granted">All files access granted</string>
+    <string name="storage_builtin_manage_access">Manage access</string>
+    <string name="storage_file_size_limit_label">File Size Limit (MB)</string>
+    <string name="storage_file_size_limit_error">Must be between %1$d and %2$d MB</string>
+    <string name="storage_download_timeout_label">Download Timeout (seconds)</string>
+    <string name="storage_download_timeout_error">Must be between %1$d and %2$d seconds</string>
+    <string name="storage_allow_http_downloads_label">Allow HTTP Downloads</string>
+    <string name="storage_allow_http_downloads_description">Allow downloading files from unencrypted HTTP URLs (less secure)</string>
+    <string name="storage_allow_unverified_https_label">Allow Unverified HTTPS</string>
+    <string name="storage_allow_unverified_https_description">Accept unverified HTTPS certificates for downloads (less secure)</string>
+
+    <!-- Event Channel — start/stop dialogs -->
+    <string name="channel_not_configured_dialog_title">Endpoint URL not set</string>
+    <string name="channel_not_configured_dialog_body">Configure the event channel endpoint URL in Settings → Event Channel before starting the service. The auth token is optional and can be left empty if your endpoint does not require it.</string>
+    <string name="channel_not_configured_dialog_ok">OK</string>
+
+    <!-- Access settings (OAuth + bearer) -->
+    <string name="access_title">Access</string>
+    <string name="access_oauth_label">OAuth</string>
+    <string name="access_oauth_supporting">Requires an active tunnel (HTTPS, public reachability)</string>
+    <string name="access_connected_clients">Connected clients</string>
+    <string name="access_bearer_label">Bearer token authentication</string>
+    <string name="access_bearer_token_field_label">Bearer token</string>
+    <string name="access_public_url_label">Public URL override (optional)</string>
+    <string name="access_public_url_supporting">Leave empty to auto-detect from the request; overrides the host used for OAuth metadata and share links</string>
+    <string name="access_no_auth_warning_title">Server has NO authentication</string>
+    <string name="access_no_auth_warning_body">Anyone who can reach the server has full control of this device.</string>
+    <string name="access_internet_exposure_warning_title">Reachable over the internet</string>
+    <string name="access_internet_exposure_warning_body">A tunnel is active and authentication is off, so Android Remote Control can be accessed over the internet without any checks — anyone with the URL has full control of this device. Enable OAuth or the bearer token.</string>
+    <string name="access_disable_auth_dialog_title">Disable all authentication?</string>
+    <string name="access_disable_auth_dialog_body">This leaves the server with NO authentication. Anyone who can reach it has full control. Continue?</string>
+    <string name="access_disable_auth_confirm">Disable anyway</string>
+    <string name="access_disable_auth_cancel">Cancel</string>
+    <string name="access_token_show">Show token</string>
+    <string name="access_token_hide">Hide token</string>
+    <string name="access_token_copy">Copy token</string>
+    <string name="access_token_regenerate">Regenerate token</string>
+
+    <!-- Connected clients -->
+    <string name="oauth_clients_title">Connected clients</string>
+    <string name="oauth_clients_empty">No connected clients. Clients appear here after they connect via OAuth.</string>
+    <string name="oauth_clients_created">Created %1$s</string>
+    <string name="oauth_clients_last_used">Last used %1$s</string>
+    <string name="oauth_clients_revoke">Revoke</string>
+    <string name="oauth_clients_revoke_dialog_title">Revoke client?</string>
+    <string name="oauth_clients_revoke_dialog_body">Revoking immediately invalidates this client\'s tokens. It must re-authorize to reconnect.</string>
+    <string name="oauth_clients_revoke_confirm">Revoke</string>
+    <string name="oauth_clients_revoke_cancel">Cancel</string>
+
+    <!-- On-device approval -->
+    <string name="approval_title">Connection requests</string>
+    <string name="approval_empty">No pending requests.</string>
+    <string name="approval_match_code_label">Confirm this code matches your browser:</string>
+    <string name="approval_approve">Approve</string>
+    <string name="approval_deny">Deny</string>
+    <string name="approval_expires_in">Expires in %1$s</string>
+    <string name="approval_expired">Request expired</string>
+    <string name="notification_channel_oauth_approval_name">Connection approvals</string>
+    <string name="notification_oauth_approval_title">Connection request pending</string>
+    <string name="notification_oauth_approval_body">%1$d request(s) waiting — tap to review</string>
+    <string name="notification_channel_update_name">App updates</string>
+    <string name="notification_update_available_title">Update available</string>
+    <string name="notification_update_available_body">Version %1$s is available — tap to view the release</string>
+    <string name="update_banner_text">Update available: v%1$s — tap to view</string>
+    <string name="update_banner_open_description">Open the release page</string>
+    <string name="about_updates_section">Updates</string>
+    <string name="about_auto_update_label">Automatically check for updates</string>
+    <string name="about_check_updates_button">Check for updates</string>
+    <string name="about_update_up_to_date">You\'re on the latest version</string>
+    <string name="about_update_check_failed">Couldn\'t check for updates. Try again later.</string>
+    <string name="about_update_dev_build">Update checks are disabled for development builds</string>
+    <string name="about_update_found">Version %1$s is available — tap to view the release</string>
+    <string name="event_channel_subtitle">Notifications and WiFi event forwarding</string>
+    <string name="settings_privacy_title">Privacy Mode</string>
+    <string name="settings_privacy_subtitle">Hide personal data from AI providers</string>
+    <string name="privacy_enable_label">Enable Privacy Mode</string>
+    <string name="privacy_consent_title">Download detection model?</string>
+    <string name="privacy_consent_message">Privacy Mode needs a ~154 MB detection model, downloaded once from Hugging Face (the open-source ai4privacy model) and verified by checksum. Continue?</string>
+    <string name="privacy_consent_confirm">Download and enable</string>
+    <string name="privacy_consent_cancel">Cancel</string>
+    <string name="privacy_download_progress">Downloading model… %1$d%%</string>
+    <string name="privacy_download_verifying">Verifying download…</string>
+    <string name="privacy_download_failed">Model download failed: %1$s</string>
+    <string name="privacy_status_ready">Active — model loaded</string>
+    <string name="privacy_status_deterministic">Active — pattern detection only (model categories disabled)</string>
+    <string name="privacy_status_unavailable">UNAVAILABLE: %1$s</string>
+    <string name="privacy_status_disabled">Disabled</string>
+    <string name="privacy_benchmark_estimate">MCP tools will take approximately +%1$s s on average (estimated for 100 on-screen elements)</string>
+    <string name="privacy_benchmark_running">Measuring on-device performance… you can keep using the app or turn Privacy Mode off; the measurement finishes on its own</string>
+    <string name="privacy_enable_preparing">Preparing Privacy Mode…</string>
+    <string name="privacy_detection_rates_header">Measured detection rates</string>
+    <string name="privacy_detection_rates_caption">Share of personal data items detected per category, measured with the project\'s effectiveness benchmark on realistic UI-style content across 8 languages. Actual results vary with content and language.</string>
+    <string name="privacy_categories_header">Protected categories</string>
+    <string name="privacy_category_credentials">Passwords &amp; credentials</string>
+    <string name="privacy_category_cards_iban">Payment cards &amp; IBANs</string>
+    <string name="privacy_category_emails">Email addresses</string>
+    <string name="privacy_category_phones">Phone numbers</string>
+    <string name="privacy_category_names">Names</string>
+    <string name="privacy_category_addresses">Addresses</string>
+    <string name="privacy_category_national_ids">National IDs &amp; documents</string>
+    <string name="privacy_mode_header">Redaction style</string>
+    <string name="privacy_mode_pseudonymize">Pseudonymize (consistent placeholders, tools keep working)</string>
+    <string name="privacy_mode_redact">Fully redact</string>
+    <string name="privacy_format_header">Placeholder format</string>
+    <string name="privacy_format_hashed">Consistent — the same value always keeps the same placeholder (EMAIL#a1b2c)</string>
+    <string name="privacy_format_numbered">Numbered — sequential per session ([EMAIL_1])</string>
+    <string name="privacy_disclaimer">Detection is best-effort mitigation, not a guarantee. No detector catches all personal data; screenshots are masked only where flagged screen elements have bounds.</string>
+    <string name="privacy_card_title">Worried about personal data?</string>
+    <string name="privacy_card_action">Set up Privacy Mode</string>
+    <string name="privacy_card_dismiss">Dismiss</string>
+</resources>

@@ -1,0 +1,124 @@
+package com.danielealbano.androidremotecontrolmcp.ui
+
+import android.Manifest
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.danielealbano.androidremotecontrolmcp.services.update.UpdateCheckScheduler
+import com.danielealbano.androidremotecontrolmcp.ui.screens.MainScreen
+import com.danielealbano.androidremotecontrolmcp.ui.theme.AndroidRemoteControlMcpTheme
+import com.danielealbano.androidremotecontrolmcp.ui.viewmodels.MainViewModel
+import com.danielealbano.androidremotecontrolmcp.utils.RecentsUtils
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
+
+@AndroidEntryPoint
+class MainActivity : ComponentActivity() {
+    private val viewModel: MainViewModel by viewModels()
+    private lateinit var notificationPermissionLauncher: ActivityResultLauncher<String>
+    private lateinit var cameraPermissionLauncher: ActivityResultLauncher<String>
+    private lateinit var microphonePermissionLauncher: ActivityResultLauncher<String>
+    private lateinit var locationPermissionLauncher: ActivityResultLauncher<String>
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.hideFromRecents.collect { hide ->
+                    updateExcludeFromRecents(hide)
+                }
+            }
+        }
+
+        notificationPermissionLauncher =
+            registerForActivityResult(
+                ActivityResultContracts.RequestPermission(),
+            ) { _ ->
+                viewModel.refreshPermissionStatus(this)
+            }
+
+        cameraPermissionLauncher =
+            registerForActivityResult(
+                ActivityResultContracts.RequestPermission(),
+            ) { _ ->
+                viewModel.refreshPermissionStatus(this)
+            }
+
+        microphonePermissionLauncher =
+            registerForActivityResult(
+                ActivityResultContracts.RequestPermission(),
+            ) { _ ->
+                viewModel.refreshPermissionStatus(this)
+            }
+
+        locationPermissionLauncher =
+            registerForActivityResult(
+                ActivityResultContracts.RequestPermission(),
+            ) { _ ->
+                viewModel.refreshPermissionStatus(this)
+            }
+
+        setContent {
+            AndroidRemoteControlMcpTheme {
+                MainScreen(
+                    onRequestNotificationPermission = ::requestNotificationPermission,
+                    onRequestCameraPermission = ::requestCameraPermission,
+                    onRequestMicrophonePermission = ::requestMicrophonePermission,
+                    onRequestLocationPermission = ::requestLocationPermission,
+                )
+            }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // Opportunistic update check each time the app is brought to the foreground (throttled by
+        // WorkManager's unique-work policy). Complements the periodic background check.
+        UpdateCheckScheduler.checkOnOpen(this)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.refreshPermissionStatus(this)
+    }
+    // NOTE: No onPause() needed for broadcast receiver since we use StateFlow
+    // for server status, which is collected in MainViewModel via viewModelScope.
+
+    /**
+     * Requests the POST_NOTIFICATIONS runtime permission.
+     */
+    private fun requestNotificationPermission() {
+        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    /**
+     * Requests the CAMERA runtime permission.
+     */
+    private fun requestCameraPermission() {
+        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+    }
+
+    /**
+     * Requests the RECORD_AUDIO runtime permission.
+     */
+    private fun requestMicrophonePermission() {
+        microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    }
+
+    private fun requestLocationPermission() {
+        locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+    }
+
+    private fun updateExcludeFromRecents(hide: Boolean) {
+        RecentsUtils.setExcludeFromRecents(this, hide)
+    }
+}
