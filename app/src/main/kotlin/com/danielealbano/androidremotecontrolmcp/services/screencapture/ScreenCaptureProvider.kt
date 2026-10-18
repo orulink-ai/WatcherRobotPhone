@@ -35,5 +35,11 @@ interface ScreenCaptureProvider {
         maxHeight: Int? = null,
     ): Result<Bitmap>
 
+    /** Captures pixels and any frame-local automation UI metadata without changing display coordinates. */
+    suspend fun captureScreenshotFrame(
+        maxWidth: Int? = null,
+        maxHeight: Int? = null,
+    ): Result<CapturedScreenshot> = captureScreenshotBitmap(maxWidth, maxHeight).map { CapturedScreenshot(it) }
+
     fun isScreenCaptureAvailable(): Boolean
 }

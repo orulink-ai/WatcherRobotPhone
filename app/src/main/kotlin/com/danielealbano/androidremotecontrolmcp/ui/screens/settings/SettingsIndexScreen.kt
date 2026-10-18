@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CellTower
 import androidx.compose.material.icons.filled.Cloud
@@ -105,6 +106,13 @@ private fun ConnectionSettingsGroup(onNavigate: (String) -> Unit) {
 @Composable
 private fun ExperienceSettingsGroup(onNavigate: (String) -> Unit) {
     SettingsGroup(stringResource(R.string.orulink_settings_experience)) {
+        SettingsEntry(
+            icon = Icons.Default.AutoAwesome,
+            title = R.string.control_effects_settings_title,
+            subtitle = R.string.control_effects_settings_hint,
+        ) {
+            onNavigate(SettingsRoute.ControlEffects.route)
+        }
         SettingsEntry(
             icon = Icons.Default.Shield,
             title = R.string.orulink_settings_privacy_title,

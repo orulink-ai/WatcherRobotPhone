@@ -25,6 +25,8 @@ sealed class SettingsRoute(
 
     data object Privacy : SettingsRoute("settings/privacy")
 
+    data object ControlEffects : SettingsRoute("settings/control_effects")
+
     data object Tunnel : SettingsRoute("settings/tunnel")
 
     data object McpTools : SettingsRoute("settings/mcp_tools")

@@ -1,9 +1,6 @@
 package com.danielealbano.androidremotecontrolmcp.ui.components
 
-import com.danielealbano.androidremotecontrolmcp.R
 import com.danielealbano.androidremotecontrolmcp.data.model.ServerStatus
-import com.danielealbano.androidremotecontrolmcp.services.control.ControlSessionState
-import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -37,24 +34,6 @@ class ServerStatusCardTest {
     fun `mcp error allows retry when accessibility is ready`() {
         assertTrue(mcpStartStopButtonEnabled(ServerStatus.Error("boom"), startEnabled = true))
         assertFalse(mcpStartStopButtonEnabled(ServerStatus.Error("boom"), startEnabled = false))
-    }
-
-    @Test
-    fun `local takeover has priority over active work in the status text`() {
-        assertEquals(
-            R.string.orulink_control_paused,
-            controlStatusResource(ControlSessionState(activeTool = "tap", isPaused = true)),
-        )
-    }
-
-    @Test
-    fun `idle service does not claim an agent is connected`() {
-        assertEquals(R.string.orulink_control_waiting, controlStatusResource(ControlSessionState()))
-    }
-
-    @Test
-    fun `executing a tool shows active control`() {
-        assertEquals(R.string.orulink_control_active, controlStatusResource(ControlSessionState(activeTool = "tap")))
     }
 
     @Test

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="control_effects_settings_title">Edge lighting</string>
+    <string name="control_effects_settings_hint">Colors, glow size, and motion</string>
+    <string name="control_effects_back">Back</string>
+    <string name="control_effects_preview">Live preview</string>
+    <string name="control_effects_preview_hint">Preview while dragging. Release to save; changes also apply while AI is running.</string>
+    <string name="control_effects_preview_description">Preview of the selected lighting around a phone screen</string>
+    <string name="control_effects_color_title">Color</string>
+    <string name="control_effects_multicolor">Multicolor glow</string>
+    <string name="control_effects_multicolor_hint">Flowing blue, violet, pink, and cyan</string>
+    <string name="control_effects_blue">Classic blue</string>
+    <string name="control_effects_blue_hint">A focused blue glow</string>
+    <string name="control_effects_custom">Custom color</string>
+    <string name="control_effects_custom_hint">Choose a swatch or enter a color</string>
+    <string name="control_effects_hex_label">Color code</string>
+    <string name="control_effects_hex_hint">Optional, for example #3380FF</string>
+    <string name="control_effects_hex_error">Use six hexadecimal digits, such as #3380FF</string>
+    <string name="control_effects_apply_color">Apply color</string>
+    <string name="control_effects_swatch_blue">Blue</string>
+    <string name="control_effects_swatch_cyan">Cyan</string>
+    <string name="control_effects_swatch_violet">Violet</string>
+    <string name="control_effects_swatch_pink">Pink</string>
+    <string name="control_effects_swatch_mint">Mint</string>
+    <string name="control_effects_swatch_orange">Orange</string>
+    <string name="control_effects_adjustments">Glow and motion</string>
+    <string name="control_effects_width">Glow size</string>
+    <string name="control_effects_width_hint">How far the light reaches into the screen</string>
+    <string name="control_effects_width_value">%1$d dp</string>
+    <string name="control_effects_intensity">Color depth</string>
+    <string name="control_effects_intensity_hint">Color concentration and glow strength</string>
+    <string name="control_effects_motion">Motion range</string>
+    <string name="control_effects_motion_hint">How far the light shifts and swells</string>
+    <string name="control_effects_speed">Motion speed</string>
+    <string name="control_effects_speed_hint">The pace of the independent edge movements</string>
+    <string name="control_effects_percent_value">%1$d%%</string>
+    <string name="control_effects_speed_value">%1$.1f×</string>
+    <string name="control_effects_restore_defaults">Restore defaults</string>
+    <string name="control_effects_save_error">Could not save. Your preview has been kept.</string>
+    <string name="control_effects_retry">Retry saving</string>
+</resources>

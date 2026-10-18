@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="control_mode_title">AI 控制模式</string>
+    <string name="control_mode_start">开始 AI 控制</string>
+    <string name="control_mode_exit">退出 AI 控制</string>
+    <string name="control_mode_inactive">AI 控制未开启</string>
+    <string name="control_mode_waiting">AI 控制已开启 · 等待下一步</string>
+    <string name="control_mode_active">AI 正在控制</string>
+    <string name="control_mode_paused">AI 控制已暂停</string>
+    <string name="control_mode_taken_over">你已接管</string>
+    <string name="control_mode_requires_service">请先启动上方的设备服务，再开始 AI 控制。</string>
+    <string name="control_mode_start_hint">开启后边框会持续待命，直到你主动退出。</string>
+    <string name="control_mode_engaged_hint">单步完成后继续待命；接管后可在悬浮条交还 AI。</string>
+</resources>
