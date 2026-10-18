@@ -3,7 +3,7 @@
 [![CI](https://github.com/danielealbano/android-remote-control-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/danielealbano/android-remote-control-mcp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **PI phone terminal:** The locally configured `pi-phone` entry selects `phone-control / auto` and uses this project's Android MCP over LAN. It reuses the fixed recorded workflow or asks Jev, with DeepSeek fallback after a fresh observation. Start with the [terminal guide and current validation status](docs/research/pi-phone-terminal.md). The [benchmark scripts](experiments/pi-phone-use/README.md) are a separate path; their ADB preparation and recording commands are not required by the daily terminal entry.
+> **PI phone terminal:** The locally configured `pi-phone` entry selects `phone-control / auto` and uses this project's Android MCP over LAN. Parameterized Xiaohongshu tasks use Jev at each step with optional recorded experience, with DeepSeek fallback after a fresh observation. See the [experience-assisted task guide and validation status](docs/research/phone-experience.md). `/phone-replay` retains the explicit fixed workflow. The [benchmark scripts](experiments/pi-phone-use/README.md) are a separate path; their ADB preparation and recording commands are not required by the daily terminal entry.
 
 An Android application that runs as an **MCP (Model Context Protocol) server**, enabling AI models to **fully control an Android device** remotely using accessibility services and screenshot capture.
 

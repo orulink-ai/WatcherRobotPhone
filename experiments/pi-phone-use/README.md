@@ -2,7 +2,7 @@
 
 ## 日常使用先看这里：pi-phone
 
-本机已安装的新 `pi-phone` 使用 **`phone-control / auto`**：同一 PI AgentLoop 内选择已验证录制流程，或使用 Jev；需要时重新观察后由 DeepSeek 兜底。动作通过本项目 OwnMcp 连接 `watcher_android` 的 **LAN HTTP MCP**，终端入口不调用 ADB。
+本机已安装的新 `pi-phone` 使用 **`phone-control / auto`**：普通小红书搜索＋互动请求优先进入经验辅助，每一步由 Jev 根据当前界面判断，已验证示教只提供参考；需要时重新观察后由 DeepSeek 兜底。显式 `/phone-replay` 保留固定录制流程。动作通过本项目 OwnMcp 连接 `watcher_android` 的 **LAN HTTP MCP**，终端入口不调用 ADB。
 
 App 录制后一键提交、PI 验证、生成、复用和安装新 Skill 的链路见 [App 闭环安装与验收](../../docs/research/app-workflow-loop.md)。它与下文保留的专用 benchmark 入口分开；新链路全部通过 LAN MCP。
 
@@ -18,7 +18,7 @@ pi-phone
 
 各行在 PI 中逐条输入；最后一项会真实执行固定帖子的点赞、收藏及取消两项，属于完整录制流程，不是读屏命令。也可单独输入精确别名 `/skill:xhs-recorded-roundtrip`：扩展将其转换为同一固定任务授权；**不支持参数，也不执行任意 SKILL 文本**。不要把它与最后一项连续执行两次。
 
-开始前在手机启动本项目服务，解锁并保持亮屏。运行前查看 [终端操作步骤、配置引用与排查表](../../docs/research/pi-phone-terminal.md)，其中区分已验证结果、失败记录和未完成验收。普通任务目前仅支持读屏、打开应用和小红书搜索；录制闭环仍固定词与固定首帖，参数泛化尚未实现。
+开始前在手机启动本项目服务，解锁并保持亮屏。运行前查看 [终端操作步骤、配置引用与排查表](../../docs/research/pi-phone-terminal.md)，其中区分已验证结果、失败记录和未完成验收。普通任务还可输入 `在小红书搜索“露营装备”，打开第一篇，只收藏`，或指定精确标题及可选作者；只收藏不会授权点赞，已满足的状态不重复点击。能力限于同 App 的搜索与点赞/收藏任务族，语法、经验开关和实机待验收矩阵见 [经验辅助说明](../../docs/research/phone-experience.md)。App 录制生成入口及 `/phone-replay` 仍是固定示例；当前是把其 verified source 供新终端引擎参考，并未扩大为任意录制生成。
 
 **下文是专用 benchmark 的安装、测速与录像说明。** `phone-benchmark`、`run_pi_trial.py` 和 `record_pi_trial.py` 属于旧实验入口，其中准备或录像使用 ADB；它们不是日常 `pi-phone` 的必要启动步骤。不要为使用新终端入口照抄下文 USB 转发或 ADB 重置命令，也不要用旧实验成功记录替代当前入口验收。
 

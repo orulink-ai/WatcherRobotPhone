@@ -24,6 +24,11 @@ from controller import (
 from own_mcp import McpError, OwnMcp, content_text, own_nodes
 from window_state import focused_package
 
+MCP_APP_PACKAGES = frozenset({
+    "com.danielealbano.androidremotecontrolmcp",
+    "com.danielealbano.androidremotecontrolmcp.foss.debug",
+    "com.danielealbano.androidremotecontrolmcp.gms.debug",
+})
 BACK = "CLICK:terminal-back"
 PREPARATION_GOAL = (
     "先打开小红书，或从当前页面返回到小红书首页的搜索入口。"
@@ -35,6 +40,7 @@ class TerminalRuntimeError(RuntimeError):
     MESSAGES = {
         "LOCKED": "手机当前处于锁屏状态，请手动解锁后重试；未尝试解锁。",
         "UNKNOWN_FOCUS": "无法确认手机当前前台窗口，已停止。",
+        "HOME_TIMEOUT": "返回桌面后手机仍停留在 MCP 应用，准备等待次数已达上限，已停止。",
         "OPEN_TIMEOUT": "应用启动后的等待次数已达 8 次，未确认目标前台，已停止。",
         "BLOCKED": "手机任务无法安全继续，已停止；未继续派发动作。",
         "NO_PROGRESS": "相同界面上的同一动作连续 3 次未取得进展，已停止。",
@@ -72,9 +78,12 @@ def stop_on_screen(runtime, task, package, locked, labels, code):
     raise TerminalRuntimeError(code)
 
 
-def focus_wait(runtime, attempt, raw):
-    runtime.operations.append({"name": "focus_stabilization", "attempt": attempt,
-                               "readOnly": True, "status": "retry"})
+def focus_wait(runtime, attempt, raw, *, reason=None):
+    operation = {"name": "focus_stabilization", "attempt": attempt,
+                 "readOnly": True, "status": "retry"}
+    if reason is not None:
+        operation["reason"] = reason
+    runtime.operations.append(operation)
     private_write(runtime.directory / f"focus-stabilization-{len(runtime.operations)}.txt", raw)
     start = time.perf_counter()
     time.sleep(0.25)
@@ -95,6 +104,10 @@ def stable_focus_text(runtime, initial):
 
 def parse_terminal_task(raw):
     task = json.loads(raw) if isinstance(raw, str) else dict(raw)
+    if isinstance(task, dict) and task.get("kind") == "experience":
+        from experience_tasks import validate_experience_task
+
+        return validate_experience_task(task)
     if not isinstance(task, dict) or task.get("kind") not in {"read", "open", "search", "recorded"}:
         raise ValueError("Unsupported terminal phone task")
     if not isinstance(task.get("goal"), str) or not 1 <= len(task["goal"].strip()) <= 4000:
@@ -436,6 +449,7 @@ class TerminalRecordedRuntime(PhoneRuntime):
         super().__init__(trial_id)
 
     def observe(self):
+        home_transition = False
         if not self._prepared:
             initial = stable_focus_text(self, content_text(self.call(
                 "android_get_screen_state", {"include_screenshot": False})))
@@ -445,12 +459,16 @@ class TerminalRecordedRuntime(PhoneRuntime):
                 stop_on_screen(self, self.task, package, locked, [], "LOCKED" if locked else "UNKNOWN_FOCUS")
             self._prepared = True
             self.call("android_press_key", {"key": "HOME"})
+            home_transition = self.entry_strategy == "prepare-feed-v1"
         for attempt in range(4):
             previous_progress = copy.deepcopy(getattr(self, "progress", None))
             snapshot = super().observe()
             raw = (self.directory / f"observation-{self.index}.txt").read_text()
             package, locked = focused_package(raw), screen_locked(own_nodes(raw))
-            if package is not None and not locked:
+            # HOME can acknowledge before this service loses focus. Only that
+            # known transition gets additional reads; other app focus is valid.
+            stale_home_focus = home_transition and package in MCP_APP_PACKAGES
+            if package is not None and not locked and not stale_home_focus:
                 break
             # Never let an unfocused/transient tree become completion evidence.
             if previous_progress is not None:
@@ -459,8 +477,12 @@ class TerminalRecordedRuntime(PhoneRuntime):
                 snapshot["done"] = previous_progress.phase == "done"
                 private_write(self.directory / f"state-{self.index}.json", json.dumps(snapshot, ensure_ascii=False))
             if locked or attempt == 3:
-                stop_on_screen(self, self.task, package, locked, [], "LOCKED" if locked else "UNKNOWN_FOCUS")
-            focus_wait(self, attempt + 1, raw)
+                code = "LOCKED" if locked else "HOME_TIMEOUT" if stale_home_focus else "UNKNOWN_FOCUS"
+                stop_on_screen(self, self.task, package, locked, [], code)
+            focus_wait(
+                self, attempt + 1, raw,
+                reason="post_home_mcp_app_focus" if stale_home_focus else None,
+            )
         state = snapshot["state"]
         state["workflowGoal"], state["goal"] = state["goal"], self.task["goal"]
         raw = (self.directory / f"observation-{self.index}.txt").read_text()
