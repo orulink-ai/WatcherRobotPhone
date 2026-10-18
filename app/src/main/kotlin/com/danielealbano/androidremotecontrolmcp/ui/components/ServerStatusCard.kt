@@ -52,6 +52,8 @@ fun ServerStatusCard(
     startEnabled: Boolean,
     modifier: Modifier = Modifier,
     controlState: ControlSessionState = ControlSessionState(),
+    onControlStartClick: () -> Unit = {},
+    onControlExitClick: () -> Unit = {},
 ) {
     ElevatedCard(
         modifier = modifier.fillMaxWidth(),
@@ -74,19 +76,6 @@ fun ServerStatusCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (serverStatus is ServerStatus.Running) {
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = stringResource(controlStatusResource(controlState)),
-                    style = MaterialTheme.typography.labelLarge,
-                    color =
-                        if (controlState.isPaused) {
-                            MaterialTheme.colorScheme.tertiary
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        },
-                )
-            }
             Spacer(Modifier.height(20.dp))
             Button(
                 onClick = if (serverStatus is ServerStatus.Running) onMcpStopClick else onMcpStartClick,
@@ -103,6 +92,15 @@ fun ServerStatusCard(
                     ),
                 )
             }
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(12.dp))
+            ControlModeControls(
+                serverStatus = serverStatus,
+                state = controlState,
+                onStart = onControlStartClick,
+                onExit = onControlExitClick,
+            )
             Spacer(Modifier.height(16.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(12.dp))
@@ -130,13 +128,6 @@ private fun serviceDescription(status: ServerStatus): String {
         },
     )
 }
-
-internal fun controlStatusResource(state: ControlSessionState): Int =
-    when {
-        state.isPaused -> R.string.orulink_control_paused
-        state.isActive -> R.string.orulink_control_active
-        else -> R.string.orulink_control_waiting
-    }
 
 /**
  * Whether the MCP Server start/stop button is enabled. Stop (Running) is always enabled;

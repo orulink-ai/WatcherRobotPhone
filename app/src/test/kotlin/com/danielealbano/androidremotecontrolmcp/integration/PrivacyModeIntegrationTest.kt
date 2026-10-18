@@ -24,6 +24,7 @@ import com.danielealbano.androidremotecontrolmcp.services.accessibility.BoundsDa
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.ScreenInfo
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.WindowData
 import com.danielealbano.androidremotecontrolmcp.services.notifications.NotificationData
+import com.danielealbano.androidremotecontrolmcp.services.screencapture.CapturedScreenshot
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.every
@@ -388,7 +389,7 @@ class PrivacyModeIntegrationTest {
 
             val resized = mockk<Bitmap>(relaxed = true)
             val masked = mockk<Bitmap>(relaxed = true)
-            coEvery { deps.screenCaptureProvider.captureScreenshotBitmap(any(), any()) } returns Result.success(resized)
+            coEvery { deps.screenCaptureProvider.captureScreenshotFrame(any(), any()) } returns Result.success(CapturedScreenshot(resized))
             every { resized.copy(Bitmap.Config.ARGB_8888, true) } returns masked
             every { masked.width } returns 1080
             every { masked.height } returns 2400

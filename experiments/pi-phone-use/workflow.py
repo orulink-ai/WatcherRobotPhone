@@ -23,6 +23,16 @@ PREDICATE_KEYS = ("kind", "queryMatches", "firstTitleVisible", "liked", "collect
 MAX_STEPS = 24
 
 
+class RecipeDrift(DecisionPolicyError):
+    """A verified screen/selector changed; contains no phone execution error."""
+
+    def __init__(self, reason):
+        if reason not in {"precondition", "selector_missing", "postcondition", "settling_screen"}:
+            raise ValueError("Unsupported recoverable recipe drift")
+        self.reason = reason
+        super().__init__("Recorded screen or selector changed")
+
+
 def semantic_selector(action, task):
     selector = {key: action.get(key) for key in sorted(SELECTOR_KEYS)}
     title = task.get("expectedFirstTitle")
@@ -76,6 +86,8 @@ def _validate_recipe(recipe):
         raise ValueError("Recipe must come from a verified paired demonstration")
     if recipe.get("recipeSha256") != recipe_digest(recipe):
         raise ValueError("Recipe changed; demonstrate and verify the new version")
+    if recipe.get("entryStrategy") not in {None, "prepare-feed-v1"}:
+        raise ValueError("Unsupported recorded recipe entry strategy")
     task = recipe.get("task", {})
     if not all(
         isinstance(task.get(key), str) and task[key] for key in ("query", "expectedFirstTitle")
@@ -84,6 +96,11 @@ def _validate_recipe(recipe):
     steps = recipe.get("steps")
     if not isinstance(steps, list) or not 1 <= len(steps) <= MAX_STEPS:
         raise ValueError("Recipe step budget invalid")
+    if recipe.get("entryStrategy") is not None and (
+        steps[0].get("before", {}).get("stage") != "search"
+        or steps[0].get("before", {}).get("observation", {}).get("kind") != "feed"
+    ):
+        raise ValueError("Prepared entry requires an actual observed feed")
     previous = None
     for step in steps:
         selector = step.get("selector", {})
@@ -131,15 +148,36 @@ def _new_bundle(directory, files):
         )
 
 
-def compile_recording(recording, directory):
+def compile_recording(recording, directory, *, entry_strategy=None):
     """Compile actual selected actions and their before/after observations."""
     started = time.perf_counter()
+    if entry_strategy not in {None, "prepare-feed-v1"}:
+        raise ValueError("Unsupported recorded recipe entry strategy")
     if (
         recording.get("schemaVersion") != 1
         or recording.get("source") != "pi-agent-demonstration"
         or recording.get("status") != "success"
     ):
         raise ValueError("A successful paired demonstration is required")
+    provenance = None
+    if recording.get("recordingValidation", {}).get("schemaVersion") == 2:
+        from workflow_intents import evidence_matches_plan, validate_plan
+
+        plan = validate_plan(recording.get("intentPlan"))
+        if not evidence_matches_plan(recording, plan):
+            raise ValueError("Semantic recording provenance is not verified")
+        provenance = {
+            "recordingValidation": copy.deepcopy(recording["recordingValidation"]),
+            "rawEventDispositions": copy.deepcopy(plan["rawEventDispositions"]),
+            "observationNotifications": copy.deepcopy(plan["observationNotifications"]),
+            "rawIntentCount": len(plan["intents"]),
+            "rawEventCount": len(plan["rawEventDispositions"]),
+            "runtimeTransitionCount": sum(
+                step.get("origin") == "runtime-required-transition"
+                and step.get("delivery") == "applied"
+                for step in recording["steps"]
+            ),
+        }
     task = recording.get("task", {})
     previous_observation = None
     for step in recording.get("steps", []):
@@ -186,6 +224,19 @@ def compile_recording(recording, directory):
                 "selector": semantic_selector(step["action"], recording.get("task", {})),
                 "before": predicate(step["before"]),
                 "after": predicate(step["after"]),
+                **(
+                    {
+                        key: copy.deepcopy(step.get(key))
+                        for key in (
+                            "origin",
+                            "rawEventSequence",
+                            "rawEventSha256",
+                            "betweenRawEvents",
+                        )
+                    }
+                    if provenance is not None
+                    else {}
+                ),
             }
             for step in recording.get("steps", [])
             if step.get("delivery") != "not_dispatched"
@@ -194,6 +245,15 @@ def compile_recording(recording, directory):
             step.get("delivery") == "not_dispatched" for step in recording.get("steps", [])
         ),
     }
+    if provenance is not None:
+        recipe.update(copy.deepcopy(provenance))
+    if entry_strategy is not None:
+        if (
+            not recording.get("steps")
+            or predicate(recording["steps"][0]["before"])["observation"].get("kind") != "feed"
+        ):
+            raise ValueError("Prepared entry requires an actual observed feed")
+        recipe["entryStrategy"] = entry_strategy
     recipe["recipeSha256"] = recipe_digest(recipe)
     _validate_recipe(recipe)
     # Waiting teaches the observable completion condition. Keep all those
@@ -231,6 +291,13 @@ def compile_recording(recording, directory):
         "",
         "# 步骤",
     ]
+    if provenance is not None:
+        lines[lines.index("# 步骤") : lines.index("# 步骤")] = [
+            f"来源：{provenance['rawEventCount']} 条原始事件，{provenance['rawIntentCount']} 项原录制意图；"
+            f"{provenance['runtimeTransitionCount']} 个实际验证的必要搜索过渡，不宣称该过渡在原始录制中。",
+            "聚焦证据和 RecyclerView 通知完整保留；不声明重放通知对应的滚动手势。",
+            "",
+        ]
     for index, step in enumerate(recipe["steps"], 1):
         lines.append(
             f"{index}. {step['selector']['method']}：{step['selector']['label']}；验证阶段 {step['after']['stage']}。"
@@ -242,7 +309,9 @@ def compile_recording(recording, directory):
             "配套 recipe.json 是执行步骤和前后置条件。由 PI phone-benchmark 的 skill 模式加载。",
             "从当前候选控件唯一匹配 method、role、label，再使用本次观察的控件引用。禁止缓存节点 ID 或坐标。",
             "每步执行后使用同一 Android MCP 观察器验证后置条件。界面变化、歧义、未知状态或动作投递异常时停止。",
-            "本版本不自动修复 skill 漂移；确认现状后可单独使用 jev-auto 模式重新执行。",
+            "skill 模式遇到漂移即停止，不调用模型。",
+            "显式选择 skill-auto 时，仅可恢复的界面或唯一控件缺失允许 Jev 接管本轮剩余步骤，不会强行返回原配方。",
+            "Jev 请求失败后必须经 PI 重新观察，再由 DeepSeek 兜底一次；任务变化、目标歧义、动作投递不确定或预算耗尽仍停止。",
             "",
         ]
     )
@@ -254,6 +323,8 @@ def compile_recording(recording, directory):
         "sourceSha256": recipe["sourceSha256"],
         "modelCalls": 0,
     }
+    if provenance is not None:
+        generation.update(copy.deepcopy(provenance))
     _new_bundle(
         directory,
         {"recipe.json": recipe, "SKILL.md": "\n".join(lines), "generation.json": generation},
@@ -385,7 +456,7 @@ class SkillPolicy:
                 if not any(
                     matches(snapshot, state) for state in self.pending.get("settleStates", [])
                 ):
-                    raise ValueError("Current screen is outside demonstrated settling states")
+                    raise RecipeDrift("settling_screen")
                 if self.current_waits >= 8 or "WAIT" not in snapshot["options"]:
                     raise ValueError("Recorded settling budget exhausted")
                 candidates = ["WAIT"]
@@ -394,16 +465,18 @@ class SkillPolicy:
                 self.settling = False
             else:
                 step = self.recipe["steps"][self.cursor]
-                if not matches(snapshot, step["before"]):
-                    raise ValueError("Recorded precondition changed")
                 candidates = [
                     choice
                     for choice, descriptor in state.get("actionDescriptors", {}).items()
                     if choice in snapshot["options"]
                     and semantic_selector(descriptor, self.recipe["task"]) == step["selector"]
                 ]
-                if len(candidates) != 1:
+                if len(candidates) > 1:
                     raise ValueError("Selector must uniquely match a current control")
+                if not matches(snapshot, step["before"]):
+                    raise RecipeDrift("precondition")
+                if not candidates:
+                    raise RecipeDrift("selector_missing")
                 self.pending = step
                 self.current_waits = 0
                 self.hits += 1
@@ -463,7 +536,7 @@ class SkillPolicy:
                 if any(matches(snapshot, state) for state in self.pending.get("settleStates", [])):
                     self.settling = True
                     return
-                raise ValueError("Postcondition drifted outside demonstrated transitions")
+                raise RecipeDrift("postcondition")
             self.cursor += 1
             self.pending = None
             self.settling = False

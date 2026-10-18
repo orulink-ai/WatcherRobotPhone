@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="control_effects_settings_title">边框光效</string>
+    <string name="control_effects_settings_hint">颜色、光晕范围与动态律动</string>
+    <string name="control_effects_back">返回</string>
+    <string name="control_effects_preview">实时预览</string>
+    <string name="control_effects_preview_hint">拖动时预览，松手后自动保存；AI 运行中也会立即生效。</string>
+    <string name="control_effects_preview_description">手机屏幕四周的当前边框光效预览</string>
+    <string name="control_effects_color_title">颜色</string>
+    <string name="control_effects_multicolor">多彩流光</string>
+    <string name="control_effects_multicolor_hint">蓝、紫、粉、青色的自然流动</string>
+    <string name="control_effects_blue">经典蓝色</string>
+    <string name="control_effects_blue_hint">清晰专注的蓝色光晕</string>
+    <string name="control_effects_custom">自定义颜色</string>
+    <string name="control_effects_custom_hint">选择色板，或输入喜欢的颜色</string>
+    <string name="control_effects_hex_label">颜色代码</string>
+    <string name="control_effects_hex_hint">选填，例如 #3380FF</string>
+    <string name="control_effects_hex_error">请输入六位十六进制颜色，例如 #3380FF</string>
+    <string name="control_effects_apply_color">应用颜色</string>
+    <string name="control_effects_swatch_blue">蓝色</string>
+    <string name="control_effects_swatch_cyan">青色</string>
+    <string name="control_effects_swatch_violet">紫色</string>
+    <string name="control_effects_swatch_pink">粉色</string>
+    <string name="control_effects_swatch_mint">薄荷绿</string>
+    <string name="control_effects_swatch_orange">橙色</string>
+    <string name="control_effects_adjustments">光晕与律动</string>
+    <string name="control_effects_width">光晕范围</string>
+    <string name="control_effects_width_hint">光晕向屏幕内延伸的范围</string>
+    <string name="control_effects_width_value">%1$d dp</string>
+    <string name="control_effects_intensity">颜色深度</string>
+    <string name="control_effects_intensity_hint">颜色浓度与光晕强度</string>
+    <string name="control_effects_motion">动态幅度</string>
+    <string name="control_effects_motion_hint">四边光晕起伏与流动的距离</string>
+    <string name="control_effects_speed">律动速度</string>
+    <string name="control_effects_speed_hint">四边独立光效的变化快慢</string>
+    <string name="control_effects_percent_value">%1$d%%</string>
+    <string name="control_effects_speed_value">%1$.1f×</string>
+    <string name="control_effects_restore_defaults">恢复默认</string>
+    <string name="control_effects_save_error">未能保存，当前预览已保留。</string>
+    <string name="control_effects_retry">重新保存</string>
+</resources>

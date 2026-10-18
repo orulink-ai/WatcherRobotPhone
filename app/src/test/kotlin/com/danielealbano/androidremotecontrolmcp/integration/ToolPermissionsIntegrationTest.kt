@@ -194,7 +194,7 @@ class ToolPermissionsIntegrationTest {
 
                 // Verify screenshot capture was never called
                 coVerify(exactly = 0) {
-                    deps.screenCaptureProvider.captureScreenshotBitmap(any(), any())
+                    deps.screenCaptureProvider.captureScreenshotFrame(any(), any())
                 }
             }
         }

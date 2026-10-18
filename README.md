@@ -3,6 +3,8 @@
 [![CI](https://github.com/danielealbano/android-remote-control-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/danielealbano/android-remote-control-mcp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+> **PI phone terminal:** The locally configured `pi-phone` entry selects `phone-control / auto` and uses this project's Android MCP over LAN. Parameterized Xiaohongshu tasks use Jev at each step with optional recorded experience, with DeepSeek fallback after a fresh observation. See the [experience-assisted task guide and validation status](docs/research/phone-experience.md). `/phone-replay` retains the explicit fixed workflow. The [benchmark scripts](experiments/pi-phone-use/README.md) are a separate path; their ADB preparation and recording commands are not required by the daily terminal entry.
+
 An Android application that runs as an **MCP (Model Context Protocol) server**, enabling AI models to **fully control an Android device** remotely using accessibility services and screenshot capture.
 
 The app runs directly on your Android device (or emulator) and exposes an HTTP server (with optional HTTPS) implementing the MCP protocol. AI models like Claude can connect to it and interact with any app on the device — reading UI elements, tapping buttons, typing text, swiping, capturing screenshots, managing files, launching apps, and more.
@@ -76,13 +78,18 @@ See [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md) for the full tool reference with inpu
 - Remote access tunnel configuration (Cloudflare / ngrok)
 - Storage location management (automatic locations + SAF authorization for file tools)
 - Server log viewer (MCP tool calls, tunnel events)
+- On-device control feedback: configurable blue, multicolor, or custom edge lights with independent motion, a translucent draggable bottom bar with **Take over** / **End task**, and a pointer with action labels driven by real gestures. Taking over pauses remote actions; **Return to AI** resumes after any in-flight gesture finishes. Pointer feedback clears on handover, cancellation, and task completion. See [control overlay design](docs/CONTROL_OVERLAY_DESIGN.md) for rendering behavior and the ego-lite reference.
 - Headless setup via ADB (configure, grant permissions, start/stop server without UI)
 - Record Xiaohongshu accessibility events, pause, review and export a local workflow draft
 
-### PI Workflow Recording Preview
+### PI Workflow Recording
 
-The app's recording entry captures semantic accessibility events. Exported JSON remains a draft:
-paired before/after observations are required before it can become an executable recipe.
+The app's recording entry captures semantic accessibility events. After reviewing a recording,
+submit “Generate Skill and run with PI” to the persistent phone queue. The local companion
+verifies the recorded intents with PI, generates a paired recipe, replays it with PI, and
+publishes a successful bundle to the profile used by new `pi-phone` sessions.
+Exported JSON remains a draft: paired before/after observations are required before execution.
+See the [App-to-PI setup and acceptance status](docs/research/app-workflow-loop.md).
 The [PI phone workflow experiments](experiments/pi-phone-use/README.md) generate `SKILL.md` and
 verified steps from an actual PI demonstration, then resolve fresh controls and verify every result
 on replay. The current adapter uses a fixed Xiaohongshu task and stops on unrecognized changes.

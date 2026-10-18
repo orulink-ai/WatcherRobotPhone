@@ -7,7 +7,9 @@ import android.os.Bundle
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -832,17 +834,27 @@ class ActionExecutorImpl
             )
         }
 
-        private fun performActionWithFeedback(
+        private suspend fun performActionWithFeedback(
             service: McpAccessibilityService,
             node: AccessibilityNodeInfo,
             action: (AccessibilityNodeInfo) -> Result<Unit>,
-        ): Result<Unit> {
-            val bounds = Rect()
-            node.getBoundsInScreen(bounds)
-            return action(node).also { result ->
-                if (result.isSuccess) service.showTargetFeedback(bounds)
+        ): Result<Unit> =
+            withContext(Dispatchers.Main) {
+                val target = NodeFeedbackTarget.from(node)
+                val bounds = target.bounds.let { Rect(it.left, it.top, it.right, it.bottom) }
+                val token = service.prepareTargetFeedback(bounds)
+                var successful = false
+                try {
+                    currentCoroutineContext().ensureActive()
+                    if (!node.refresh() || NodeFeedbackTarget.from(node) != target) {
+                        Result.failure(IllegalStateException("Target changed while the pointer moved; observe again."))
+                    } else {
+                        action(node).also { successful = it.isSuccess }
+                    }
+                } finally {
+                    service.finishTargetFeedback(token, bounds, successful)
+                }
             }
-        }
 
         private fun performGlobalAction(
             action: Int,
@@ -892,8 +904,10 @@ class ActionExecutorImpl
                 val feedbackToken = service.prepareGestureFeedback(gesture)
                 var dispatched = false
                 try {
+                    currentCoroutineContext().ensureActive()
                     withTimeoutOrNull(GESTURE_TIMEOUT_MS) {
                         suspendCancellableCoroutine { continuation ->
+                            if (!continuation.isActive) return@suspendCancellableCoroutine
                             val callback =
                                 object :
                                     android.accessibilityservice.AccessibilityService.GestureResultCallback() {
@@ -906,7 +920,7 @@ class ActionExecutorImpl
                                     }
 
                                     override fun onCancelled(gestureDescription: GestureDescription?) {
-                                        service.finishGestureFeedback(feedbackToken)
+                                        service.finishGestureFeedback(feedbackToken, cancelled = true)
                                         Log.w(TAG, "Gesture cancelled: $description")
                                         if (continuation.isActive) {
                                             continuation.resume(
@@ -919,9 +933,9 @@ class ActionExecutorImpl
                                 }
 
                             dispatched = service.dispatchGesture(gesture, callback, null)
-                            if (dispatched) service.showGestureFeedback(gesture)
+                            if (dispatched) service.showGestureFeedback(feedbackToken, gesture)
                             if (!dispatched) {
-                                service.finishGestureFeedback(feedbackToken)
+                                service.finishGestureFeedback(feedbackToken, cancelled = true)
                                 Log.e(TAG, "Failed to dispatch gesture: $description")
                                 if (continuation.isActive) {
                                     continuation.resume(
@@ -939,7 +953,9 @@ class ActionExecutorImpl
                         )
                     }
                 } finally {
-                    if (!dispatched) service.finishGestureFeedback(feedbackToken)
+                    // A dispatched platform gesture can outlive timeout/cancellation of this coroutine.
+                    // The callback or overlay deadline releases its panel avoidance and feedback.
+                    if (!dispatched) service.finishGestureFeedback(feedbackToken, cancelled = true)
                 }
             }
 

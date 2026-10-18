@@ -1,7 +1,9 @@
 package com.danielealbano.androidremotecontrolmcp.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
+import com.danielealbano.androidremotecontrolmcp.data.model.ServerStatus
 import com.danielealbano.androidremotecontrolmcp.services.control.ControlSession
+import com.danielealbano.androidremotecontrolmcp.services.mcp.McpServerService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -10,7 +12,15 @@ import javax.inject.Inject
 class ControlExperienceViewModel
     @Inject
     constructor(
-        controlSession: ControlSession,
+        private val controlSession: ControlSession,
     ) : ViewModel() {
         val controlState = controlSession.state
+
+        fun enterControl() {
+            if (McpServerService.serverStatus.value is ServerStatus.Running) controlSession.enterControl()
+        }
+
+        fun exitControl() {
+            controlSession.exitControl()
+        }
     }

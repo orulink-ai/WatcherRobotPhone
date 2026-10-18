@@ -41,36 +41,31 @@ class ScreenCaptureProviderImpl
             maxWidth: Int?,
             maxHeight: Int?,
         ): Result<ScreenshotData> {
-            val validation = validateService()
-            if (validation is ServiceValidation.Invalid) {
-                return Result.failure(validation.error)
-            }
-            val service = (validation as ServiceValidation.Valid).service
-
-            val bitmap =
-                service.takeScreenshotBitmap()
-                    ?: return Result.failure(
-                        McpToolException.ActionFailed("Screenshot capture failed or timed out"),
-                    )
-
-            var resizedBitmap: Bitmap? = null
+            val frame = captureScreenshotFrame(maxWidth, maxHeight).getOrElse { return Result.failure(it) }
             return try {
-                resizedBitmap = screenshotEncoder.resizeBitmapProportional(bitmap, maxWidth, maxHeight)
-                val screenshotData = screenshotEncoder.bitmapToScreenshotData(resizedBitmap, quality)
-                Result.success(screenshotData)
+                val screenshotData = screenshotEncoder.bitmapToScreenshotData(frame.bitmap, quality)
+                Result.success(screenshotData.copy(captureMetadata = frame.captureMetadata))
             } finally {
-                // resizeBitmapProportional returns the SAME bitmap if no resize needed,
-                // or a NEW bitmap if resized. Recycle the resized one first (if different),
-                // then always recycle the original.
-                if (resizedBitmap != null && resizedBitmap !== bitmap) {
-                    resizedBitmap.recycle()
-                }
-                bitmap.recycle()
+                frame.bitmap.recycle()
             }
         }
 
+        @Suppress("ReturnCount")
+        override suspend fun captureScreenshotFrame(
+            maxWidth: Int?,
+            maxHeight: Int?,
+        ): Result<CapturedScreenshot> {
+            val validation = validateService()
+            if (validation is ServiceValidation.Invalid) return Result.failure(validation.error)
+            val service = (validation as ServiceValidation.Valid).service
+            val frame =
+                service.takeScreenshotFrame()
+                    ?: return Result.failure(McpToolException.ActionFailed("Screenshot capture failed or timed out"))
+            return resizeFrame(frame, maxWidth, maxHeight)
+        }
+
         @SuppressLint("NewApi")
-        @Suppress("ReturnCount", "TooGenericExceptionCaught")
+        @Suppress("ReturnCount")
         override suspend fun captureScreenshotBitmap(
             maxWidth: Int?,
             maxHeight: Int?,
@@ -87,22 +82,24 @@ class ScreenCaptureProviderImpl
                         McpToolException.ActionFailed("Screenshot capture failed or timed out"),
                     )
 
-            return try {
-                val resizedBitmap = screenshotEncoder.resizeBitmapProportional(bitmap, maxWidth, maxHeight)
-                // If resize produced a new bitmap, recycle the original
-                if (resizedBitmap !== bitmap) {
-                    bitmap.recycle()
-                }
-                Result.success(resizedBitmap)
-            } catch (e: Exception) {
-                // Ensure original bitmap is recycled even if resize throws
-                bitmap.recycle()
-                Log.e(TAG, "Screenshot resize failed", e)
-                Result.failure(
-                    McpToolException.ActionFailed("Screenshot resize failed"),
-                )
-            }
+            return resizeFrame(CapturedScreenshot(bitmap), maxWidth, maxHeight).map { it.bitmap }
         }
+
+        @Suppress("TooGenericExceptionCaught")
+        private fun resizeFrame(
+            frame: CapturedScreenshot,
+            maxWidth: Int?,
+            maxHeight: Int?,
+        ): Result<CapturedScreenshot> =
+            try {
+                val resized = screenshotEncoder.resizeBitmapProportional(frame.bitmap, maxWidth, maxHeight)
+                if (resized !== frame.bitmap) frame.bitmap.recycle()
+                Result.success(frame.copy(bitmap = resized))
+            } catch (error: Exception) {
+                frame.bitmap.recycle()
+                Log.e(TAG, "Screenshot resize failed", error)
+                Result.failure(McpToolException.ActionFailed("Screenshot resize failed"))
+            }
 
         @Suppress("ReturnCount")
         private fun validateService(): ServiceValidation {
