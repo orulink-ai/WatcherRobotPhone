@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="event_channel_subtitle">Notifications, WiFi, and geofence event forwarding</string>
+    <!-- gms: Location rationale mentions geofences (overrides the main default) -->
+    <string name="permission_location_rationale">Read GPS position and trigger geofences.</string>
+    <!-- gms: Background Location permission row (geofence-only) -->
+    <string name="permission_background_location">Background Location</string>
+    <string name="permission_background_location_open_settings">Open Settings</string>
+    <string name="permission_background_location_rationale">Fire geofence events while in the background.</string>
+</resources>

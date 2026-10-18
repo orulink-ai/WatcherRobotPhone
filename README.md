@@ -60,3 +60,7 @@ flowchart LR
 本仓库承载黑客松的项目说明、技术调研、Application 集成与演示资料。WatcheRobot SDK、Daemon 和既有固件保留在各自源码仓库，后续适配通过明确的接口与配套提交关联，不在此复制另一份 Daemon。
 
 初始化内容为文档与可离线打开的 HTML，无需安装依赖。实现进入本仓库后，再补充实际启动与测试命令。
+
+## Android MCP 实验实现
+
+已合并 Android MCP 应用源码、手机控制体验、Pi 工作流和 StartLux 接入。详见[Android 后端与运行说明](docs/android-backend/README.md)。这条实现链路与上文 ESP32 BLE HID 路线分别记录，合入源码不代表整体实机验证已完成。

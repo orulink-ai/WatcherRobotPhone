@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="control_cursor_approach">Moving to target</string>
+    <string name="control_cursor_clicked">Clicked</string>
+    <string name="control_cursor_pressed">Pressed</string>
+    <string name="control_cursor_swiped">Swiped</string>
+    <string name="control_cursor_scrolled">Scrolled</string>
+    <string name="control_cursor_typed">Text entered</string>
+    <string name="control_cursor_click">Clicking element</string>
+    <string name="control_cursor_long_press">Pressing element</string>
+    <string name="control_cursor_swipe">Swiping</string>
+    <string name="control_cursor_scroll">Scrolling</string>
+    <string name="control_cursor_type">Entering text</string>
+</resources>

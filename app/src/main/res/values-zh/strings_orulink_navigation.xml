@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="orulink_settings_connections">连接与访问</string>
+    <string name="orulink_settings_experience">控制体验</string>
+    <string name="orulink_settings_capabilities">功能与权限</string>
+    <string name="orulink_settings_device">设备与存储</string>
+    <string name="orulink_settings_access_title">客户端访问</string>
+    <string name="orulink_settings_tunnel_title">远程连接</string>
+    <string name="orulink_settings_security_title">传输安全</string>
+    <string name="orulink_settings_privacy_title">隐私保护</string>
+    <string name="orulink_settings_channel_title">事件与自动化</string>
+    <string name="orulink_settings_tools_title">可用工具</string>
+    <string name="orulink_settings_permissions_title">系统权限</string>
+    <string name="orulink_settings_general_title">通用设置</string>
+    <string name="orulink_settings_storage_title">文件访问</string>
+    <string name="orulink_settings_access_hint">管理连接授权与已授权的客户端</string>
+    <string name="orulink_settings_tunnel_hint">从其他网络连接这台设备</string>
+    <string name="orulink_settings_security_hint">使用 HTTPS 和证书保护连接</string>
+    <string name="orulink_settings_privacy_hint">限制向 Agent 提供的个人信息</string>
+    <string name="orulink_settings_channel_hint">选择向 Agent 推送的设备事件</string>
+    <string name="orulink_settings_tools_hint">选择 Agent 可以使用的设备能力</string>
+    <string name="orulink_settings_permissions_hint">查看和开启 Android 系统授权</string>
+    <string name="orulink_settings_general_hint">管理网络监听、设备标识与启动方式</string>
+    <string name="orulink_settings_storage_hint">选择 Agent 可以访问的文件夹</string>
+    <string name="orulink_about_tagline">让 Agent 与安卓设备之间的连接清晰可控。</string>
+    <string name="orulink_about_version">Orulink 构建版本 · v%1$s</string>
+    <string name="orulink_about_project">Orulink 项目</string>
+    <string name="orulink_about_repository">Orulink 源代码仓库</string>
+    <string name="orulink_about_open_source">基于开源项目</string>
+    <string name="orulink_about_upstream_credit">基于 Daniele Salvatore Albano 的 Android Remote Control MCP 开发，保留原作者版权及 MIT 许可。</string>
+    <string name="orulink_about_upstream_repository">上游开源仓库</string>
+    <string name="orulink_about_upstream_updates">上游项目更新</string>
+    <string name="orulink_about_upstream_updates_hint">此功能检查原项目发布版本。上游版本与 Orulink 版本独立维护。</string>
+    <string name="orulink_about_auto_check_upstream">自动检查上游发布版本</string>
+    <string name="orulink_about_check_upstream">检查上游版本</string>
+    <string name="orulink_about_upstream_update_found">上游 v%1$s 已发布 · 查看详情</string>
+    <string name="orulink_about_upstream_current">未发现更新的上游发布版本。</string>
+    <string name="orulink_about_dev_build">开发版本已禁用上游更新检查。</string>
+    <string name="tab_server">设备</string>
+    <string name="tab_settings">设置</string>
+    <string name="tab_about">关于</string>
+    <string name="notification_channel_update_name">上游项目更新</string>
+    <string name="notification_update_available_title">上游项目有新版本</string>
+    <string name="notification_update_available_body">上游版本 %1$s 已发布 · 点按查看详情</string>
+    <string name="update_banner_text">上游项目更新：v%1$s · 点按查看</string>
+    <string name="update_banner_open_description">查看上游版本发布页面</string>
+</resources>

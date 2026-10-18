@@ -1,0 +1,16 @@
+{
+  "name": "android-remote-control-mcp",
+  "description": "Android Remote Control MCP plugin marketplace",
+  "owner": {
+    "name": "Daniele Salvatore Albano",
+    "email": "d.albano@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "android-remote-control",
+      "description": "Channel plugin for Android Remote Control MCP — receives device events and pushes them into Claude Code sessions.",
+      "source": "./channel-plugin",
+      "category": "productivity"
+    }
+  ]
+}

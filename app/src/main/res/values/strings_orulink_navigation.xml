@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="orulink_settings_connections">Connection &amp; access</string>
+    <string name="orulink_settings_experience">Control experience</string>
+    <string name="orulink_settings_capabilities">Capabilities &amp; permissions</string>
+    <string name="orulink_settings_device">Device &amp; storage</string>
+    <string name="orulink_settings_access_title">Client access</string>
+    <string name="orulink_settings_tunnel_title">Remote connection</string>
+    <string name="orulink_settings_security_title">Transport security</string>
+    <string name="orulink_settings_privacy_title">Privacy protection</string>
+    <string name="orulink_settings_channel_title">Events &amp; automation</string>
+    <string name="orulink_settings_tools_title">Available tools</string>
+    <string name="orulink_settings_permissions_title">System permissions</string>
+    <string name="orulink_settings_general_title">General settings</string>
+    <string name="orulink_settings_storage_title">File access</string>
+    <string name="orulink_settings_access_hint">Manage authorization and approved clients</string>
+    <string name="orulink_settings_tunnel_hint">Reach this device from another network</string>
+    <string name="orulink_settings_security_hint">Protect connections with HTTPS and certificates</string>
+    <string name="orulink_settings_privacy_hint">Limit personal information shared with agents</string>
+    <string name="orulink_settings_channel_hint">Choose the events sent to your agent</string>
+    <string name="orulink_settings_tools_hint">Choose what connected agents can do</string>
+    <string name="orulink_settings_permissions_hint">Review access granted by Android</string>
+    <string name="orulink_settings_general_hint">Network listening, device identity and startup</string>
+    <string name="orulink_settings_storage_hint">Choose which folders agents may access</string>
+    <string name="orulink_about_tagline">A clear connection between your agent and Android.</string>
+    <string name="orulink_about_version">Orulink build · v%1$s</string>
+    <string name="orulink_about_project">Orulink project</string>
+    <string name="orulink_about_repository">Orulink source code</string>
+    <string name="orulink_about_open_source">Built on open source</string>
+    <string name="orulink_about_upstream_credit">Based on Android Remote Control MCP by Daniele Salvatore Albano. Original copyright and MIT license are retained.</string>
+    <string name="orulink_about_upstream_repository">Original project repository</string>
+    <string name="orulink_about_upstream_updates">Upstream project updates</string>
+    <string name="orulink_about_upstream_updates_hint">Checks the original project releases. These are separate from Orulink releases.</string>
+    <string name="orulink_about_auto_check_upstream">Automatically check upstream releases</string>
+    <string name="orulink_about_check_upstream">Check upstream releases</string>
+    <string name="orulink_about_upstream_update_found">Upstream v%1$s is available · view release</string>
+    <string name="orulink_about_upstream_current">No newer upstream release was found.</string>
+    <string name="orulink_about_dev_build">Upstream update checks are disabled in development builds.</string>
+</resources>
