@@ -1,0 +1,363 @@
+{
+  "scope": {
+    "start": "2026-10-17T00:00:00+08:00",
+    "end": "2026-10-18T19:47:52+08:00",
+    "type": "historical snapshot; not live monitoring",
+    "integration_boundary": "model services and separate Pi/Android MCP experiments; not completed hackathon Application/ESP32 integration"
+  },
+  "models": [
+    {
+      "name": "DeepSeek-V4.1-Flash-1017",
+      "format": "官方 native FP4/FP8",
+      "allocated_GiB": 475.413,
+      "status": "新增；双机 JACCL 当前主服务",
+      "validation": "完整双机文本、图片、多轮、流式、工具/Pi 已验证"
+    },
+    {
+      "name": "Qwen3.8-Flash-Next",
+      "format": "官方 BF16",
+      "allocated_GiB": 341.121,
+      "status": "新增；已验证，当前停用",
+      "validation": "本聊天图文定位与动作；另任务完成 API/Pi 接入"
+    },
+    {
+      "name": "UI-Venus-2-9B",
+      "format": "BF16",
+      "allocated_GiB": 17.565,
+      "status": "新增；离线测试完成，未常驻",
+      "validation": "同图三个定位及单步动作验证"
+    },
+    {
+      "name": "StartLux 27B AutoThink",
+      "format": "MLX 8bit",
+      "allocated_GiB": 31.134,
+      "status": "新增；本机8092 在线",
+      "validation": "专用决策服务、AndroidControl 离线测试"
+    },
+    {
+      "name": "StartLux 4B Instant",
+      "format": "MLX 8bit",
+      "allocated_GiB": 4.796,
+      "status": "新增；8091 引擎 + 8094 LAN 在线",
+      "validation": "双向注意力决策、项目客户端与真机任务"
+    },
+    {
+      "name": "StartLux 4B AutoThink",
+      "format": "MLX 8bit",
+      "allocated_GiB": 4.796,
+      "status": "新增；保留，未见独立常驻服务",
+      "validation": "同批离线决策对照完成"
+    },
+    {
+      "name": "Llama-3.2-3B-Instruct",
+      "format": "4bit",
+      "allocated_GiB": 1.702,
+      "status": "既有保留；未见常驻",
+      "validation": "不据文件存在推断本期推理结果"
+    },
+    {
+      "name": "Llama-3.3-70B-Instruct",
+      "format": "8bit",
+      "allocated_GiB": 69.833,
+      "status": "既有保留；未见常驻",
+      "validation": "本期无新完整部署证据"
+    },
+    {
+      "name": "Qwen3-235B-A22B-Instruct-2507",
+      "format": "4bit，纯文本",
+      "allocated_GiB": 123.175,
+      "status": "既有保留；未见常驻",
+      "validation": "不支持图片，不能当作当前多模态 Qwen"
+    }
+  ],
+  "qwen_local": {
+    "precision": "official BF16",
+    "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+    "load_seconds": 47.365364500001306,
+    "peak_GiB": 333.1684682322666,
+    "cases": [
+      {
+        "name": "text",
+        "total_seconds": 5.849917375002406,
+        "generation_tps": 58.39146179371276
+      },
+      {
+        "name": "understanding",
+        "total_seconds": 8.623015667006257,
+        "generation_tps": 27.50006523157536
+      },
+      {
+        "name": "toggle",
+        "total_seconds": 4.488960750008118,
+        "generation_tps": 30.476670301135286,
+        "point_0_1000": [
+          851,
+          154
+        ],
+        "point_pixels": [
+          919,
+          364
+        ],
+        "hit_manual_box": true
+      },
+      {
+        "name": "days",
+        "total_seconds": 4.855485541993403,
+        "generation_tps": 28.87570054996741,
+        "point_0_1000": [
+          789,
+          459
+        ],
+        "point_pixels": [
+          852,
+          1084
+        ],
+        "hit_manual_box": true
+      },
+      {
+        "name": "playlist",
+        "total_seconds": 5.4577991669939365,
+        "generation_tps": 28.23303547489617,
+        "point_0_1000": [
+          808,
+          522
+        ],
+        "point_pixels": [
+          873,
+          1233
+        ],
+        "hit_manual_box": true
+      },
+      {
+        "name": "action",
+        "total_seconds": 4.962059332989156,
+        "generation_tps": 28.809686889699897,
+        "point_0_1000": [
+          851,
+          153
+        ],
+        "point_pixels": [
+          919,
+          361
+        ]
+      },
+      {
+        "name": "repeat_0",
+        "total_seconds": 4.4875772499945015,
+        "generation_tps": 30.1843698744421,
+        "point_0_1000": [
+          851,
+          154
+        ],
+        "point_pixels": [
+          919,
+          364
+        ],
+        "hit_manual_box": true
+      },
+      {
+        "name": "repeat_1",
+        "total_seconds": 4.489141666999785,
+        "generation_tps": 30.202329238814823,
+        "point_0_1000": [
+          851,
+          154
+        ],
+        "point_pixels": [
+          919,
+          364
+        ],
+        "hit_manual_box": true
+      },
+      {
+        "name": "repeat_2",
+        "total_seconds": 4.48404379200656,
+        "generation_tps": 30.19289868549609,
+        "point_0_1000": [
+          851,
+          154
+        ],
+        "point_pixels": [
+          919,
+          364
+        ],
+        "hit_manual_box": true
+      }
+    ],
+    "timing_note": "local first nonempty text chunk was buffered; not comparable to precise token TTFT"
+  },
+  "official_ds": {
+    "endpoint": "https://api.deepseek.com/chat/completions",
+    "model": "deepseek-flash",
+    "thinking": false,
+    "requests": 26,
+    "summary": {
+      "short": {
+        "n": 3,
+        "median_total_seconds": 0.8016802079946501,
+        "median_ttft_seconds": 0.7330519169918261,
+        "median_decode_tps": 11.413462221206695,
+        "cache_hit_tokens": [
+          0,
+          0,
+          0
+        ]
+      },
+      "long_decode": {
+        "n": 3,
+        "median_total_seconds": 3.8469239589903736,
+        "median_ttft_seconds": 0.5905400420015212,
+        "median_decode_tps": 149.09367206133686,
+        "cache_hit_tokens": [
+          0,
+          0,
+          0
+        ]
+      },
+      "context_4k": {
+        "n": 2,
+        "median_total_seconds": 0.6792957500001648,
+        "median_ttft_seconds": 0.6023144585051341,
+        "median_decode_tps": 65.68093407870728,
+        "cache_hit_tokens": [
+          0,
+          3072
+        ]
+      },
+      "qwen_text": {
+        "n": 3,
+        "median_total_seconds": 0.7807072909927228,
+        "median_ttft_seconds": 0.6768418749998091,
+        "median_decode_tps": 0.0,
+        "cache_hit_tokens": [
+          0,
+          0,
+          0
+        ],
+        "local_qwen_previous_total_seconds": 5.849917375002406,
+        "local_over_official_total_ratio": 7.493099452886926
+      },
+      "qwen_understanding": {
+        "n": 3,
+        "median_total_seconds": 1.51904333299899,
+        "median_ttft_seconds": 0.8096890830056509,
+        "median_decode_tps": 213.9300821734974,
+        "cache_hit_tokens": [
+          0,
+          896,
+          896
+        ],
+        "local_qwen_previous_total_seconds": 8.623015667006257,
+        "local_over_official_total_ratio": 5.676609402565338
+      },
+      "qwen_toggle": {
+        "n": 3,
+        "median_total_seconds": 0.9121270830073627,
+        "median_ttft_seconds": 0.8164185830100905,
+        "median_decode_tps": 52.24196388139515,
+        "cache_hit_tokens": [
+          768,
+          896,
+          896
+        ],
+        "manual_box_hits": 3,
+        "local_qwen_previous_total_seconds": 4.488960750008118,
+        "local_over_official_total_ratio": 4.921420308239969
+      },
+      "qwen_days": {
+        "n": 3,
+        "median_total_seconds": 0.8144340409926372,
+        "median_ttft_seconds": 0.7155126249999739,
+        "median_decode_tps": 50.431589509708886,
+        "cache_hit_tokens": [
+          768,
+          896,
+          896
+        ],
+        "manual_box_hits": 3,
+        "local_qwen_previous_total_seconds": 4.855485541993403,
+        "local_over_official_total_ratio": 5.961791007747549
+      },
+      "qwen_playlist": {
+        "n": 3,
+        "median_total_seconds": 0.8442599999980303,
+        "median_ttft_seconds": 0.7185964590025833,
+        "median_decode_tps": 83.9640545229715,
+        "cache_hit_tokens": [
+          768,
+          896,
+          896
+        ],
+        "manual_box_hits": 3,
+        "local_qwen_previous_total_seconds": 5.4577991669939365,
+        "local_over_official_total_ratio": 6.464595227781335
+      },
+      "qwen_action": {
+        "n": 3,
+        "median_total_seconds": 0.9801830830110703,
+        "median_ttft_seconds": 0.8524322080047568,
+        "median_decode_tps": 96.85964844641586,
+        "cache_hit_tokens": [
+          768,
+          896,
+          896
+        ],
+        "manual_box_hits": 3,
+        "local_qwen_previous_total_seconds": 4.962059332989156,
+        "local_over_official_total_ratio": 5.062380099181037
+      }
+    },
+    "conditions": [
+      "sequential shared HTTP/2 client",
+      "official actual cache hit tokens retained",
+      "local results historical; not simultaneous paired reruns",
+      "different tokenizer/weight versions possible",
+      "one long-output run reached 512-token limit; possible truncation"
+    ]
+  },
+  "historical_ds_local": {
+    "benchmark": {
+      "short": {
+        "n": 3,
+        "median_ttft_seconds": 0.2752976660049171,
+        "median_total_seconds": 0.39421029100049054,
+        "median_decode_tokens_per_second": 16.46400505423983,
+        "input_tokens": 18,
+        "output_tokens": 3
+      },
+      "long_decode": {
+        "n": 3,
+        "median_ttft_seconds": 0.34500104199833004,
+        "median_total_seconds": 27.745671291995677,
+        "median_decode_tokens_per_second": 17.147913874814478,
+        "input_tokens": 44,
+        "output_tokens": 471
+      },
+      "context_4k": {
+        "n": 2,
+        "median_ttft_seconds": 9.713261291497474,
+        "median_total_seconds": 10.087967374998698,
+        "median_decode_tokens_per_second": 16.020974003259106,
+        "input_tokens": 3258,
+        "output_tokens": 7
+      }
+    },
+    "pi_before_median_seconds": 35.106490958001814,
+    "pi_after_median_seconds": 12.757465167000191,
+    "pi_speedup": 2.7518390603810525,
+    "paired_results_identical": 66
+  },
+  "historical_phone_task": {
+    "local_mean_seconds": 69.3,
+    "official_mean_seconds": 27.77,
+    "local_n": 3,
+    "official_n": 3,
+    "all_six_passed": true,
+    "route": "previous Pi plus Android MCP; not an ESP32 HID experiment"
+  },
+  "storage": {
+    "available_GiB": 709.0222625732422,
+    "deleted_v31_8bit_freed_GiB": 664.0442886352539,
+    "qwen_incomplete_GiB": 5.8085823059
+  }
+}
