@@ -42,7 +42,12 @@ def safe_error(error, command):
     """No response bodies or arbitrary exception messages cross the IPC boundary."""
     from terminal_runtime import TerminalRuntimeError
     from experience_runtime import ExperienceRuntimeError
+    from terminal_tasks import TerminalTaskError
 
+    if isinstance(error, TerminalTaskError):
+        return "手机任务未识别或超出当前支持范围；请描述具体操作。未执行手机操作。", {
+            "exceptionType": "TerminalTaskError", "stage": "terminal_task", "code": "UNSUPPORTED_TASK",
+        }
     if isinstance(error, ExperienceRuntimeError):
         return ExperienceRuntimeError.MESSAGES[error.code], {
             "exceptionType": "ExperienceRuntimeError", "stage": "experience_observation", "code": error.code,
@@ -118,6 +123,49 @@ def remember_original(snapshot, base):
         )
 
 
+async def serve_terminal_rejection(trial_id, error, *, input_stream, output_stream, base, started):
+    """Keep rejected task setup inside the IPC protocol, before any dependencies start."""
+    message, details = safe_error(error, "terminal_task")
+    result = {
+        "trialId": trial_id, "status": "failed", "provider": "terminal-auto",
+        "elapsedMs": 0, "piElapsedMs": None, "piAgentLoop": True,
+        "modelCalls": [], "operations": [], "phases": [], "milestones": [],
+        "finalState": None, "error": message, "errorDetails": details,
+        "terminalSummary": {"kind": "unsupported", "backend": "terminal-auto"},
+    }
+
+    def persist(pi_elapsed_ms=None):
+        result.update(elapsedMs=(time.perf_counter() - started) * 1000, piElapsedMs=pi_elapsed_ms)
+        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", trial_id):
+            try:
+                directory = base / trial_id
+                directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+                private_write(directory / "result.json", json.dumps(result, ensure_ascii=False, indent=2))
+            except OSError:
+                # A full disk must not turn a known no-dispatch rejection into
+                # an unexplained worker exit or uncertain action delivery.
+                pass
+
+    persist()
+    async with aclosing(protocol_lines(input_stream)) as lines:
+        async for line in lines:
+            try:
+                request = json.loads(line)
+                if not isinstance(request, dict):
+                    request = {}
+            except ValueError:
+                request = {}
+            finished = request.get("command") == "finish"
+            if finished:
+                persist(request.get("piElapsedMs"))
+                response = {"id": request.get("id"), "result": result}
+            else:
+                response = {"id": request.get("id"), "error": message, "errorDetails": details}
+            print(json.dumps(response, ensure_ascii=False), file=output_stream, flush=True)
+            if finished:
+                break
+
+
 async def serve(
     provider,
     trial_id,
@@ -134,16 +182,24 @@ async def serve(
     terminal_task = None
     if provider == "terminal-auto" or os.environ.get("PHONE_TERMINAL_TASK"):
         from terminal_runtime import parse_terminal_task
+        from terminal_tasks import TerminalTaskError, resolve_task
 
         supplied = os.environ.get("PHONE_TERMINAL_TASK")
-        if supplied:
-            terminal_task = parse_terminal_task(supplied)
-        else:
-            from terminal_tasks import resolve_task
-
-            terminal_task = parse_terminal_task(resolve_task(
-                os.environ.get("PHONE_TERMINAL_GOAL"), os.environ.get("PHONE_BENCH_RECIPE"),
-            ))
+        try:
+            if supplied:
+                terminal_task = parse_terminal_task(supplied)
+            else:
+                terminal_task = parse_terminal_task(resolve_task(
+                    os.environ.get("PHONE_TERMINAL_GOAL"), os.environ.get("PHONE_BENCH_RECIPE"),
+                ))
+        except (ValueError, TypeError):
+            await serve_terminal_rejection(
+                trial_id, TerminalTaskError("Unsupported terminal task"),
+                input_stream=sys.stdin if input_stream is None else input_stream,
+                output_stream=sys.stdout if output_stream is None else output_stream,
+                base=Path(base) if base is not None else output_dir(), started=serve_started,
+            )
+            return
         provider = (
             "experience-auto" if terminal_task["kind"] == "experience"
             else "skill-auto" if terminal_task["kind"] == "recorded" else "jev-auto"
