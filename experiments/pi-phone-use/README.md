@@ -242,3 +242,10 @@ export PHONE_BENCH_RECIPE="$PHONE_BENCH_OUTPUT_DIR/skill-bundle/recipe.json"
 ```
 
 验收需逐项检查四次真实状态变化和桌面证明。其他聊天正在安装 APK 或运行 instrumentation 时不要并发验收；这些操作可能断开无障碍服务，不能计为模型成功或性能数据。
+
+
+## 4B Instant 局域网后端
+
+本地模型宿主机的无 Key 决策接口为 `http://192.168.50.26:8094/v1/systemone`。选择现有 `startlux-instant` provider，并设置 `PHONE_BENCH_STARTLUX_ALLOW_LAN=1` 和 `PHONE_BENCH_STARTLUX_INSTANT_URL`；默认 loopback 配置不变。接口也支持 `/api/alpha/decisions` 的 Jev 多问题请求形状，但模型名应改为 `startlux-4b-instant`。
+
+部署、启停、示例请求和已验证范围见 [4B Instant 后端说明](../startlux-backend/README.md)。

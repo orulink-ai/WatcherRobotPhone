@@ -22,7 +22,7 @@ import { conversationRoute, timingSummary, type PreviousTask } from "./terminal-
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const API = "phone-benchmark-stdio";
-type Backend = "jev" | "deepseek" | "jev-auto" | "skill" | "skill-auto" | "terminal-auto";
+type Backend = "jev" | "deepseek" | "jev-auto" | "skill" | "skill-auto" | "terminal-auto" | "startlux-instant" | "startlux-autothink";
 type Command = "observe" | "act" | "decide" | "finish";
 type Observation = { state: Record<string, unknown>; options: Record<string, string>; done: boolean };
 type Pending = { resolve(value: any): void; reject(error: Error): void; cleanup(): void };
@@ -338,9 +338,9 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: {
   pi.registerProvider(providerId, {
     name: config.terminal ? "Phone control · Skill / Jev / DeepSeek" : "Phone benchmark (local worker)",
     baseUrl: "stdio://phone-benchmark", apiKey: "local-worker-no-api-key", api: API,
-    models: (config.terminal ? ["auto"] : ["jev", "deepseek", "jev-auto", "skill", "skill-auto"]).map((id) => ({
-      id, name: id === "auto" ? `${config.primaryLabel ?? "Jev"} + 录制 Skill → DeepSeek` : id === "skill-auto" ? "Recorded skill → Jev → DeepSeek" : id === "skill" ? "Recorded phone skill with verified steps" : id === "jev-auto" ? "Jev 优先，DeepSeek 兜底" : id === "jev" ? "Jev 1.14 phone decisions" : "DeepSeek V4.1 Flash phone decisions",
-      reasoning: false, input: ["text"], contextWindow: 1_000_000, maxTokens: 256,
+    models: (config.terminal ? ["auto"] : ["jev", "deepseek", "jev-auto", "skill", "skill-auto", "startlux-instant", "startlux-autothink"]).map((id) => ({
+      id, name: id === "startlux-instant" ? "Local StartLux 4B Instant" : id === "startlux-autothink" ? "Local StartLux 27B AutoThink" : id === "auto" ? `${config.primaryLabel ?? "Jev"} + 录制 Skill → DeepSeek` : id === "skill-auto" ? "Recorded skill → Jev → DeepSeek" : id === "skill" ? "Recorded phone skill with verified steps" : id === "jev-auto" ? "Jev 优先，DeepSeek 兜底" : id === "jev" ? "Jev 1.14 phone decisions" : "DeepSeek V4.1 Flash phone decisions",
+      reasoning: false, input: ["text"], contextWindow: id.startsWith("startlux-") ? 8192 : 1_000_000, maxTokens: 256,
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     })),
     streamSimple(model: Model<Api>, context: TranscriptContext, options?: SimpleStreamOptions) {
@@ -363,7 +363,7 @@ export function registerPhoneBenchmark(pi: ExtensionAPI, config: {
           if (config.enabled?.() === false) throw new Error("No current phone request is active");
           if (failed) throw new Error("Phone trial already failed");
           if (options?.signal?.aborted) throw new Error("Aborted");
-          if (config.terminal ? model.id !== "auto" : !["jev", "deepseek", "jev-auto", "skill", "skill-auto"].includes(model.id)) throw new Error("Unsupported phone model");
+          if (config.terminal ? model.id !== "auto" : !["jev", "deepseek", "jev-auto", "skill", "skill-auto", "startlux-instant", "startlux-autothink"].includes(model.id)) throw new Error("Unsupported phone model");
           const backend = config.terminal ? "terminal-auto" : model.id as Backend;
           if (config.terminal && !bootstrapSent) {
             const goal = terminalGoal(context);
